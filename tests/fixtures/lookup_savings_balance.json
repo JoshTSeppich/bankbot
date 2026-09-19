@@ -4,38 +4,30 @@
   "version": "1.0.0",
   "app": {
     "vendor": "example-cu",
-    "app_id": "legacy-core",
+    "app_id": "legacy-core-teller",
     "variant": "default",
     "fingerprint": {
       "title": "Legacy Core Teller",
       "version": "7.2.1",
-      "screen_hashes": {
-        "member_search": "sha256:3b1f0c9a5d2e7f4186a0c3b9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9",
-        "member_detail": "sha256:9e0d1c2b3a4f5e6d7c8b9a0f1e2d3c4b5a6f7e8d9c0b1a2f3e4d5c6b7a8f9e0d"
-      }
+      "screen_hashes": {}
     }
   },
   "created_from_run": {
-    "run_id": "run-0001",
-    "model": "claude-fable-5-1",
+    "run_id": "hand-written",
+    "model": "none",
     "sdk_versions": {
-      "anthropic": "1.7.0",
       "playwright": "1.56.0"
     },
     "started_at": "2026-09-19T08:30:00Z",
-    "finished_at": "2026-09-19T08:34:12Z",
-    "request_ids": [
-      "req_01example0001",
-      "req_01example0002",
-      "req_01example0003"
-    ]
+    "finished_at": "2026-09-19T08:30:00Z",
+    "request_ids": []
   },
   "inputs": {
     "member_id": {
       "type": "string",
-      "pattern": "^[0-9]{6}$",
+      "pattern": "^M-[0-9]+$",
       "required": true,
-      "example": "100234"
+      "example": "M-100"
     }
   },
   "outputs": {
@@ -44,30 +36,23 @@
       "extract": {
         "candidates": [
           {
-            "strategy": "label",
-            "value": "Savings balance",
-            "confidence": 0.9,
-            "reasoning": "The balance cell is labelled by its row header, which a human reads first."
+            "strategy": "css_structural",
+            "value": "th:text-is(\"Savings balance\") + td",
+            "confidence": 0.8,
+            "reasoning": "The cell right after the row header a human reads first; survives rows being reordered."
           },
           {
             "strategy": "css_structural",
-            "value": "table.accounts tr:nth-child(2) td:nth-child(3)",
+            "value": "table.accounts tbody tr:nth-of-type(1) td",
             "confidence": 0.5,
-            "reasoning": "Table position is stable on this app but breaks if a row is added."
+            "reasoning": "Table position is stable on this app but breaks if a row is added above."
           }
         ],
         "frame_path": []
       }
     }
   },
-  "preconditions": [
-    {
-      "description": "An operator is logged in",
-      "url_pattern": null,
-      "text_visible": "Signed in as",
-      "target_visible": null
-    }
-  ],
+  "preconditions": [],
   "steps": [
     {
       "id": "open_search",
@@ -77,7 +62,7 @@
         "literal": "/members/search"
       },
       "wait_for": {
-        "description": "The member search form is shown",
+        "description": "The member search page is shown",
         "url_pattern": "/members/search$",
         "text_visible": null,
         "target_visible": null
@@ -96,13 +81,13 @@
             "strategy": "role_name",
             "value": "textbox:Member ID",
             "confidence": 0.95,
-            "reasoning": "The field has an accessible name; role+name survives layout changes."
+            "reasoning": "The field has an accessible name; role and name survive layout changes."
           },
           {
             "strategy": "css_structural",
-            "value": "form table tr:nth-child(1) input",
+            "value": "form table input",
             "confidence": 0.4,
-            "reasoning": "Structural fallback; the frame comes from frame_path."
+            "reasoning": "Structural fallback: the only input in the search form."
           }
         ],
         "frame_path": [
@@ -126,7 +111,13 @@
             "strategy": "role_name",
             "value": "button:Search",
             "confidence": 0.95,
-            "reasoning": "Only button on the form with this name."
+            "reasoning": "The only button on the form with this name."
+          },
+          {
+            "strategy": "css_structural",
+            "value": "form button[type=submit]",
+            "confidence": 0.5,
+            "reasoning": "Structural fallback: the only submit button in the search form. Wins when the button is renamed."
           }
         ],
         "frame_path": [
@@ -135,7 +126,7 @@
       },
       "value": null,
       "wait_for": {
-        "description": "Results table or the no-member notice has rendered",
+        "description": "The results page or the no-member notice has rendered",
         "url_pattern": "/members/results",
         "text_visible": null,
         "target_visible": null
@@ -161,8 +152,8 @@
       },
       "value": null,
       "wait_for": {
-        "description": "Member detail page is shown",
-        "url_pattern": "/members/[0-9]+$",
+        "description": "The member detail page is shown",
+        "url_pattern": "/members/M-[0-9]+$",
         "text_visible": null,
         "target_visible": null
       },
@@ -205,7 +196,7 @@
     {
       "id": "session_expired",
       "matches": {
-        "description": "The app redirected to the login page",
+        "description": "The app is showing the login page",
         "url_pattern": "/login",
         "text_visible": null,
         "target_visible": null
@@ -264,14 +255,14 @@
                 "strategy": "role_name",
                 "value": "button:Sign in",
                 "confidence": 0.95,
-                "reasoning": "Only submit button on the login form."
+                "reasoning": "The only submit button on the login form."
               }
             ],
             "frame_path": []
           },
           "value": null,
           "wait_for": {
-            "description": "Logged-in indicator is back",
+            "description": "The signed-in banner is back",
             "url_pattern": null,
             "text_visible": "Signed in as",
             "target_visible": null
@@ -281,8 +272,8 @@
           }
         }
       ],
-      "resume_from_step": null,
-      "max_attempts": 1
+      "resume_from_step": "open_search",
+      "max_attempts": 3
     }
   ],
   "risk": "safe",

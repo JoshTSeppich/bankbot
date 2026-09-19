@@ -7,7 +7,8 @@ models so the contract is enforced at load time and exportable as JSON Schema.
 Does not own: any behaviour. Nothing here touches a browser, a file system
 or a model API.
 
-Governed by ADR-0001 (artifact schema) and ADR-0003 (error taxonomy).
+Governed by ADR-0001 (artifact schema), ADR-0003 (error taxonomy) and
+ADR-0004 (control transfer, for the InterventionRequest).
 """
 
 from bankbot.schemas.artifact import (
@@ -34,7 +35,13 @@ from bankbot.schemas.artifact import (
     SecretRef,
     StateAssertion,
     Step,
+    StrictModel,
     TargetRef,
+)
+from bankbot.schemas.intervention import (
+    InterventionDecision,
+    InterventionReason,
+    InterventionRequest,
 )
 from bankbot.schemas.result import (
     REPLAY_RESULT_ADAPTER,
@@ -42,7 +49,9 @@ from bankbot.schemas.result import (
     Failure,
     Outcome,
     ReplayResult,
+    ReplayWarning,
     Success,
+    WarningCode,
 )
 
 __all__ = [
@@ -57,6 +66,9 @@ __all__ = [
     "Fail",
     "Failure",
     "InputSpec",
+    "InterventionDecision",
+    "InterventionReason",
+    "InterventionRequest",
     "KnownOutcome",
     "LiteralValue",
     "LocatorStrategy",
@@ -68,12 +80,15 @@ __all__ = [
     "Recover",
     "Recovery",
     "ReplayResult",
+    "ReplayWarning",
     "Retry",
     "Risk",
     "RunProvenance",
     "SecretRef",
     "StateAssertion",
     "Step",
+    "StrictModel",
     "Success",
     "TargetRef",
+    "WarningCode",
 ]

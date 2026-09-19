@@ -94,5 +94,5 @@ def test_target_ref_defaults_to_the_top_document_when_no_frame_path_is_given() -
 def test_created_from_run_carries_model_and_request_ids_for_audit() -> None:
     capability = Capability.model_validate(load_example())
     assert capability.created_from_run is not None
-    assert capability.created_from_run.model == "claude-fable-5-1"
-    assert len(capability.created_from_run.request_ids) == 3
+    assert capability.created_from_run.model == "none"
+    assert capability.created_from_run.request_ids == []

@@ -31,6 +31,8 @@
     {% endif %}
     {% if abort_reason == "operator_lost" %}
     <div class="banner red"><span class="dot red"></span>Aborted: the operator's page stopped pinging while they held control, so the run was ended rather than left open.</div>
+    {% elif abort_reason == "nobody_came" %}
+    <div class="banner red"><span class="dot red"></span>Aborted: nobody took control within the time allowed, so the run was ended rather than left open.</div>
     {% endif %}
 
     <div class="live{% if is_human %} human{% endif %}">

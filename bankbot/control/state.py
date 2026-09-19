@@ -15,7 +15,9 @@ is idle for exactly that span.
 The lease: while a person holds control their page pings every
 HEARTBEAT_EVERY_S seconds. HEARTBEAT_MISSES missed pings in a row and the
 engine aborts the run with reason OPERATOR_LOST rather than hold a bank
-session open for nobody.
+session open for nobody. Before anyone has taken control the same rule
+applies with a longer clock: ANSWER_WITHIN_S with no one arriving aborts
+with reason NOBODY_CAME.
 
 Does not own: the pages a person sees (control/operator.py) or the rules
 that decide a request is needed (replay/).
@@ -38,7 +40,10 @@ LIVE_SCREENSHOT_EVERY_S = 1.0
 LIVE_SCREENSHOT_NAME = "live"
 HEARTBEAT_EVERY_S = 10.0
 HEARTBEAT_MISSES = 3
+# How long the engine waits for anyone to take control before it gives up the session.
+ANSWER_WITHIN_S = 15 * 60.0
 OPERATOR_LOST = "operator_lost"
+NOBODY_CAME = "nobody_came"
 OPERATOR_CHOSE = "operator"
 
 
@@ -79,11 +84,13 @@ class RunController:
         writer: EvidenceWriter,
         pump: Pump | None = None,
         heartbeat_every_s: float = HEARTBEAT_EVERY_S,
+        answer_within_s: float = ANSWER_WITHIN_S,
     ) -> None:
         self.run_dir = run_dir
         self.capability = capability
         self.param_names = param_names
         self.heartbeat_every_s = heartbeat_every_s
+        self.answer_within_s = answer_within_s
         self.started_at = datetime.now(UTC)
         self.request_pending: InterventionRequest | None = None
         self.human_actions: list[HumanAction] = []
@@ -217,6 +224,9 @@ class RunController:
             if state is ControlState.HUMAN and self._lease_expired():
                 self.abort(OPERATOR_LOST)
                 continue
+            if state is ControlState.INTERVENTION_REQUESTED and self._nobody_came():
+                self.abort(NOBODY_CAME)
+                continue
             self._pump(IDLE_MS)
 
     def _refresh_live_view(self) -> None:
@@ -226,6 +236,9 @@ class RunController:
             # The person is mid-click on a link; the page has no document to picture yet.
             # The last picture stays up and the next tick takes a new one.
             return
+
+    def _nobody_came(self) -> bool:
+        return self.waiting_seconds() > self.answer_within_s
 
     def _lease_expired(self) -> bool:
         with self._lock:

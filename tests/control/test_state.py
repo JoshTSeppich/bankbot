@@ -6,7 +6,7 @@ import pytest
 from playwright.sync_api import Page
 
 from bankbot.control import ControlState, IllegalTransition, RunController
-from bankbot.control.state import HEARTBEAT_MISSES, OPERATOR_LOST
+from bankbot.control.state import HEARTBEAT_MISSES, NOBODY_CAME, OPERATOR_LOST
 from bankbot.evidence import read_events
 from bankbot.schemas import InterventionDecision
 from bankbot.surface import ObservationUnavailable
@@ -233,3 +233,15 @@ def test_a_run_the_operator_already_ended_is_answered_abort_at_once(
     assert controller.aborted()
     assert controller.request(a_request(controller.run_id)) is InterventionDecision.ABORT
     assert current(controller) is ControlState.ABORTED, "not reopened as a new request"
+
+
+def test_a_request_nobody_answers_is_aborted_as_nobody_came(
+    controller: RunController, page: Page, base_url: str
+) -> None:
+    page.goto(f"{base_url}/login")
+    controller.answer_within_s = FAST_HEARTBEAT_S
+    started = time.monotonic()
+    decision = controller.request(a_request(controller.run_id))
+    assert decision is InterventionDecision.ABORT
+    assert controller.abort_reason == NOBODY_CAME
+    assert time.monotonic() - started >= FAST_HEARTBEAT_S

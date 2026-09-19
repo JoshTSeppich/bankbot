@@ -1,0 +1,23 @@
+{% extends "page.html" %}
+{% block content %}
+<h1>{{ member.name }}</h1>
+<table>
+  <tr><td>Member ID</td><td>{{ member.member_id }}</td></tr>
+  <tr><td>Branch</td><td>{{ member.branch }}</td></tr>
+</table>
+<table class="accounts">
+  <thead>
+    <tr><th>Account</th><th>Balance</th></tr>
+  </thead>
+  <tbody>
+    <tr><th scope="row">Savings balance</th><td>{{ money(member.savings) }}</td></tr>
+    <tr><th scope="row">Checking balance</th><td>{{ money(member.checking) }}</td></tr>
+  </tbody>
+</table>
+<form method="post" action="{{ variant.prefix }}/members/{{ member.member_id }}/close">
+  <table>
+    <tr><td><button type="submit">Close account</button></td></tr>
+  </table>
+</form>
+<p><a href="{{ variant.prefix }}/members/search">New search</a></p>
+{% endblock %}

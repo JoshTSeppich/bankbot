@@ -1,0 +1,27 @@
+{% extends "page.html" %}
+{% block content %}
+<h1>Search results</h1>
+{% if member %}
+<table class="results">
+  <thead>
+    <tr>
+      <th>Member ID</th>
+      <th>Name</th>
+      <th>Branch</th>
+      {% if variant.show_status_column %}<th>Status</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>{{ member.member_id }}</td>
+      <td><a href="{{ variant.prefix }}/members/{{ member.member_id }}">{{ member.name }}</a></td>
+      <td>{{ member.branch }}</td>
+      {% if variant.show_status_column %}<td>{{ member.status }}</td>{% endif %}
+    </tr>
+  </tbody>
+</table>
+{% else %}
+<p class="notice">No member found for {{ member_id }}</p>
+{% endif %}
+<p><a href="{{ variant.prefix }}/members/search">New search</a></p>
+{% endblock %}

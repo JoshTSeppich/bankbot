@@ -1,0 +1,7 @@
+{% extends "page.html" %}
+{% block content %}
+<h1>Account closed</h1>
+<p>The close request for {{ member.name }} ({{ member.member_id }}) was recorded.</p>
+<p>This is a demonstration system. No data was changed.</p>
+<p><a href="{{ variant.prefix }}/members/search">New search</a></p>
+{% endblock %}

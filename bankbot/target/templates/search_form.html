@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{% include "head.html" %}
+</head>
+<body style="background: #fff;">
+<form method="post" action="{{ variant.prefix }}/members/results" target="_top">
+  <table>
+    <tr>
+      <td><label>Member ID <input type="text" name="member_id" size="12" autocomplete="off"></label></td>
+      <td><button type="submit">{{ variant.search_button }}</button></td>
+    </tr>
+  </table>
+</form>
+</body>
+</html>

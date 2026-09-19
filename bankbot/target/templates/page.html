@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{% include "head.html" %}
+</head>
+<body>
+<table class="frame">
+  <tr>
+    <td class="banner">Legacy Core Teller</td>
+    {% if username %}<td class="banner right">Signed in as {{ username }}</td>{% endif %}
+  </tr>
+  <tr>
+    <td class="content"{% if username %} colspan="2"{% endif %}>
+      {% block content %}{% endblock %}
+    </td>
+  </tr>
+</table>
+{% if show_dialog %}
+<div role="dialog" aria-modal="true" aria-label="System notice"
+     style="position: fixed; inset: 0; z-index: 99999; background: rgba(0, 0, 0, 0.45);">
+  <table style="width: 100%; height: 100%;">
+    <tr>
+      <td style="text-align: center; vertical-align: middle;">
+        <table style="margin: 0 auto; background: #fff; border: 2px solid #003366; padding: 16px;">
+          <tr><td><strong>System notice</strong></td></tr>
+          <tr><td>Scheduled maintenance tonight 02:00–03:00</td></tr>
+          <tr><td style="text-align: right;">
+            <button type="button" onclick="this.closest('[role=dialog]').remove()">OK</button>
+          </td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
+{% endif %}
+</body>
+</html>

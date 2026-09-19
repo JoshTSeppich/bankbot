@@ -199,7 +199,7 @@ class Discovery:
         self._fingerprint = AppFingerprint(
             title=actual.title,
             version=actual.version,
-            screen_hashes={self.spec.start_path: actual.screen_hashes["current"]},
+            screen_fingerprints={self.spec.start_path: actual.screen_fingerprints["current"]},
         )
 
     def _loop(self) -> tuple[StopReason, str]:

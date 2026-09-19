@@ -16,7 +16,7 @@
     },
     "AppFingerprint": {
       "additionalProperties": false,
-      "description": "What the app looked like at recording time, so replay can tell it is on the wrong variant.\n\nscreen_hashes maps a key screen's name to a hash of its ARIA snapshot.\nA mismatch on replay means the UI differs from what was recorded, which\nis a different signal from a single control drifting.",
+      "description": "What the app looked like at recording time, so replay can tell it is on the wrong variant.\n\nscreen_fingerprints maps a key screen's path to its tab sequence. Replay\nmeasures the edit distance to the live screen and reports it as a\nnumber, so \"how different\" is a fact in the log rather than a yes or no.",
       "properties": {
         "title": {
           "title": "Title",
@@ -26,12 +26,15 @@
           "title": "Version",
           "type": "string"
         },
-        "screen_hashes": {
+        "screen_fingerprints": {
           "additionalProperties": {
-            "type": "string"
+            "items": {
+              "$ref": "#/$defs/ScreenElement"
+            },
+            "type": "array"
           },
           "default": {},
-          "title": "Screen Hashes",
+          "title": "Screen Fingerprints",
           "type": "object"
         }
       },
@@ -424,6 +427,31 @@
         "finished_at"
       ],
       "title": "RunProvenance",
+      "type": "object"
+    },
+    "ScreenElement": {
+      "additionalProperties": false,
+      "description": "One focusable control as a person tabbing through the screen would meet it.\n\nrole is the ARIA role, state is Lantern's eight-bit bitmap (expanded,\nhaspopup, selected, checked, disabled, required, invalid, readonly), and\nlandmark is the nearest enclosing landmark or \"none\". Names and values\nare left out on purpose: the shape of a screen is what it lets you do,\nnot whose record is on it.",
+      "properties": {
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "state": {
+          "title": "State",
+          "type": "integer"
+        },
+        "landmark": {
+          "title": "Landmark",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "state",
+        "landmark"
+      ],
+      "title": "ScreenElement",
       "type": "object"
     },
     "SecretRef": {

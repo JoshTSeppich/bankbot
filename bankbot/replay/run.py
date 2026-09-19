@@ -42,7 +42,7 @@ from bankbot.schemas import (
     Success,
     WarningCode,
 )
-from bankbot.surface import Surface
+from bankbot.surface import Surface, distance
 
 # Outcome and recovery matchers are a quick look at the page, not a wait:
 # on the happy path they run after every step and must not slow it down.
@@ -77,6 +77,7 @@ class Replay:
         self.capability = capability
         self.params = dict(params)
         self.surface = surface
+        self.policy = policy
         self.run_dir = run_dir
         self.writer = writer
         self.base_url = base_url.rstrip("/")
@@ -216,7 +217,7 @@ class Replay:
         if attempted.output_name is not None and attempted.output_value is not None:
             self._outputs[attempted.output_name] = attempted.output_value
         self._note_drift(step, attempted.candidate_index)
-        self._check_screen_hash()
+        self._check_screen_fingerprint()
         return None
 
     def _ask_human(self, step: Step, index: int, failure: StepFailed) -> int | Failure | None:
@@ -321,18 +322,40 @@ class Replay:
         if differences:
             self._warn(WarningCode.VARIANT_MISMATCH, None, "; ".join(differences))
 
-    def _check_screen_hash(self) -> None:
-        """Compare a screen's ARIA hash the first time replay lands on a path the artifact knows."""
+    def _check_screen_fingerprint(self) -> None:
+        """Measure a screen's tab sequence against the recording the first time replay lands on it.
+
+        The number is logged every time; the warning is raised only when
+        the policy's share of the sequence has changed.
+        """
         recorded = self.capability.app.fingerprint
-        if recorded is None or not recorded.screen_hashes:
+        if recorded is None or not recorded.screen_fingerprints:
             return
-        path = urlparse(self.steps.url()).path
-        if path not in recorded.screen_hashes or path in self._screens_checked:
+        path = self._screen_path(self.steps.url())
+        if path not in recorded.screen_fingerprints or path in self._screens_checked:
             return
         self._screens_checked.add(path)
-        actual = self.surface.fingerprint().screen_hashes.get("current")
-        if actual != recorded.screen_hashes[path]:
-            self._warn(WarningCode.VARIANT_MISMATCH, None, f"screen {path} differs from recording")
+        expected = recorded.screen_fingerprints[path]
+        actual = self.surface.fingerprint().screen_fingerprints["current"]
+        edits = distance(expected, actual)
+        length = max(len(expected), len(actual))
+        self.writer.event(Event.SCREEN_COMPARED, screen=path, distance=edits, length=length)
+        if edits > self.policy.fingerprint.max_distance_ratio * length:
+            self._warn(
+                WarningCode.VARIANT_MISMATCH,
+                None,
+                f"screen {path}: {edits} of {length} controls differ from the recording",
+                distance=edits,
+                length=length,
+            )
+
+    def _screen_path(self, url: str) -> str:
+        """The path as the artifact names it: relative to the deployment, so /b/x is /x on B."""
+        path = urlparse(url).path or "/"
+        prefix = urlparse(self.base_url).path.rstrip("/")
+        if prefix and path.startswith(prefix):
+            path = path[len(prefix) :] or "/"
+        return path
 
     def _note_drift(self, step: Step, candidate_index: int | None) -> None:
         if candidate_index is not None and candidate_index > 0:
@@ -342,9 +365,26 @@ class Replay:
                 f"candidate {candidate_index} resolved; earlier candidates did not",
             )
 
-    def _warn(self, code: WarningCode, step_id: str | None, detail: str) -> None:
-        self._warnings.append(ReplayWarning(code=code, step_id=step_id, detail=detail))
-        self.writer.event(Event.WARNING, code=code.value, step_id=step_id, detail=detail)
+    def _warn(
+        self,
+        code: WarningCode,
+        step_id: str | None,
+        detail: str,
+        distance: int | None = None,
+        length: int | None = None,
+    ) -> None:
+        warning = ReplayWarning(
+            code=code, step_id=step_id, detail=detail, distance=distance, length=length
+        )
+        self._warnings.append(warning)
+        self.writer.event(
+            Event.WARNING,
+            code=code.value,
+            step_id=step_id,
+            detail=detail,
+            distance=distance,
+            length=length,
+        )
 
     # --- small helpers ---------------------------------------------------
 

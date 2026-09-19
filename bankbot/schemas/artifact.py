@@ -223,17 +223,36 @@ class Recovery(StrictModel):
 # --- The artifact ----------------------------------------------------------
 
 
+class ScreenElement(StrictModel):
+    """One focusable control as a person tabbing through the screen would meet it.
+
+    role is the ARIA role, state is Lantern's eight-bit bitmap (expanded,
+    haspopup, selected, checked, disabled, required, invalid, readonly), and
+    landmark is the nearest enclosing landmark or "none". Names and values
+    are left out on purpose: the shape of a screen is what it lets you do,
+    not whose record is on it.
+    """
+
+    role: str
+    state: int
+    landmark: str
+
+    def key(self) -> tuple[str, int, str]:
+        """The hashable form the edit distance compares."""
+        return (self.role, self.state, self.landmark)
+
+
 class AppFingerprint(StrictModel):
     """What the app looked like at recording time, so replay can tell it is on the wrong variant.
 
-    screen_hashes maps a key screen's name to a hash of its ARIA snapshot.
-    A mismatch on replay means the UI differs from what was recorded, which
-    is a different signal from a single control drifting.
+    screen_fingerprints maps a key screen's path to its tab sequence. Replay
+    measures the edit distance to the live screen and reports it as a
+    number, so "how different" is a fact in the log rather than a yes or no.
     """
 
     title: str
     version: str
-    screen_hashes: dict[str, str] = {}
+    screen_fingerprints: dict[str, list[ScreenElement]] = {}
 
 
 class AppRef(StrictModel):

@@ -10,7 +10,6 @@ browser (the CLI opens the page and hands it in).
 Governed by ADR-0006 (surface abstraction) and ADR-0002 (locator strategy).
 """
 
-import hashlib
 import re
 import time
 from collections.abc import Sequence
@@ -22,6 +21,7 @@ from playwright.sync_api import Locator, Page
 
 from bankbot.schemas.artifact import ActionType, AppFingerprint, StateAssertion, TargetRef
 from bankbot.surface.facts import element_facts
+from bankbot.surface.fingerprint import screen_fingerprint
 from bankbot.surface.frames import walk_frames
 from bankbot.surface.human import HumanWatcher, OnHumanAction
 from bankbot.surface.locators import bbox_centre, first_line, resolve_target
@@ -41,11 +41,6 @@ DIALOG = "[role=dialog]:visible"
 POLL_INTERVAL_MS = 100
 # holds() probes a target once per poll; resolve_target's floor makes this the per-candidate wait.
 TARGET_PROBE_MS = 250
-
-
-def hash_aria(aria: str) -> str:
-    """Hash a screen's ARIA snapshot the one way both the compiler and replay must agree on."""
-    return "sha256:" + hashlib.sha256(aria.encode("utf-8")).hexdigest()
 
 
 class PlaywrightSurface:
@@ -164,16 +159,15 @@ class PlaywrightSurface:
             self._page.wait_for_timeout(POLL_INTERVAL_MS)
 
     def fingerprint(self) -> AppFingerprint:
-        """Title, the application-version meta tag, and a hash of the top document's ARIA."""
+        """Title, the application-version meta tag, and the current screen's tab sequence."""
         meta = self._page.locator(VERSION_META)
         version = ""
         if meta.count() > 0:
             version = meta.first.get_attribute("content") or ""
-        aria = self._page.locator("body").aria_snapshot()
         return AppFingerprint(
             title=self._page.title(),
             version=version,
-            screen_hashes={"current": hash_aria(aria)},
+            screen_fingerprints={"current": screen_fingerprint(self._page)},
         )
 
     def start_trace(self) -> None:

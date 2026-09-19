@@ -35,3 +35,9 @@ redaction:
   secret_env_suffixes: [_KEY, _TOKEN, _SECRET, _ID, _PASSWORD]
   # Fields blurred in every screenshot before it is saved.
   mask_selectors: ["input[type=password]"]
+
+# Variant drift: a key screen's tab sequence is compared to the recording
+# by edit distance. More than this share of the sequence changed means the
+# app is not the build the capability was recorded on.
+fingerprint:
+  max_distance_ratio: 0.25

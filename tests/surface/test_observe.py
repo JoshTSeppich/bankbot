@@ -2,7 +2,7 @@ from pathlib import Path
 
 from playwright.sync_api import Page
 
-from bankbot.surface import PlaywrightSurface, Surface, hash_aria
+from bankbot.surface import PlaywrightSurface, Surface
 from tests.surface.conftest import arm_faults, sign_in
 
 DIALOG_TEXT = "Scheduled maintenance tonight"
@@ -66,18 +66,18 @@ def test_dialog_text_is_reported_when_the_unknown_dialog_fault_is_armed(
     assert 'dialog "System notice"' in observation.frames[0].aria
 
 
-def test_fingerprint_reports_title_version_and_a_stable_hash_for_the_same_screen(
-    surface: PlaywrightSurface, signed_in_page: Page
+def test_fingerprint_reports_title_version_and_the_same_tab_sequence_for_the_same_screen(
+    surface: PlaywrightSurface, page: Page, base_url: str
 ) -> None:
+    page.goto(f"{base_url}/login")
     first = surface.fingerprint()
-    signed_in_page.reload()
+    page.goto(f"{base_url}/login")
     second = surface.fingerprint()
-
     assert first.title == "Legacy Core Teller"
     assert first.version == "7.2.1"
-    assert first.screen_hashes["current"].startswith("sha256:")
-    assert first == second
-    assert first.screen_hashes["current"] == hash_aria(surface.observe().frames[0].aria)
+    assert first.screen_fingerprints["current"] == second.screen_fingerprints["current"]
+    roles = [element.role for element in first.screen_fingerprints["current"]]
+    assert roles == ["textbox", "textbox", "button"], "username, password, sign in, in tab order"
 
 
 def test_variant_b_changes_the_fingerprint_version(

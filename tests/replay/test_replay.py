@@ -17,6 +17,7 @@ from bankbot.schemas import (
     Success,
     WarningCode,
 )
+from bankbot.surface import screen_fingerprint
 from tests.replay.conftest import arm_faults, make_replay
 
 
@@ -208,7 +209,17 @@ def test_a_later_candidate_winning_succeeds_with_a_drift_warning(
 def test_variant_b_produces_a_variant_mismatch_warning_and_still_replays_through_drift(
     page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
 ) -> None:
-    replay, _ = make_replay(
+    # Record the search screen's shape on variant A, the way discovery would have.
+    page.goto(f"{base_url}/login")
+    page.get_by_label("Username").fill("teller")
+    page.get_by_label("Password").fill("teller-demo-password")
+    page.get_by_role("button", name="Sign in").click()
+    page.wait_for_url("**/members/search")
+    capability_json["app"]["fingerprint"]["screen_fingerprints"] = {
+        "/members/search": [element.model_dump() for element in screen_fingerprint(page)]
+    }
+    page.context.clear_cookies()
+    replay, run_dir = make_replay(
         load(capability_json),
         {"member_id": "M-100"},
         page=page,
@@ -224,6 +235,10 @@ def test_variant_b_produces_a_variant_mismatch_warning_and_still_replays_through
     assert WarningCode.DRIFT in codes
     mismatch = next(w for w in result.warnings if w.code is WarningCode.VARIANT_MISMATCH)
     assert "7.3.0" in mismatch.detail and "7.2.1" in mismatch.detail
+    compared = [e for e in read_events(run_dir) if e["event"] == "screen_compared"]
+    assert compared and compared[0]["screen"] == "/members/search"
+    # A renamed button is the same shape: the number in the log is what says so.
+    assert compared[0]["distance"] == 0 and compared[0]["length"] == 2
 
 
 def test_a_risky_step_on_a_draft_capability_asks_a_human_before_acting(

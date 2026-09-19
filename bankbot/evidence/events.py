@@ -39,6 +39,7 @@ class Event(StrEnum):
     OUTCOME_MATCHED = "outcome_matched"
     CHECKPOINT_PASSED = "checkpoint_passed"
     WARNING = "warning"
+    SCREEN_COMPARED = "screen_compared"
     INTERVENTION_REQUESTED = "intervention_requested"
     INTERVENTION_ANSWERED = "intervention_answered"
     TRACE = "trace"

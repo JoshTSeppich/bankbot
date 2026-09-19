@@ -49,7 +49,8 @@ def test_compiled_capability_validates_and_carries_provenance(recorded: Recorded
     assert capability.app.fingerprint is not None
     assert capability.app.fingerprint.title == "Legacy Core Teller"
     assert capability.app.fingerprint.version == "7.2.1"
-    assert list(capability.app.fingerprint.screen_hashes) == ["/members/search"]
+    assert list(capability.app.fingerprint.screen_fingerprints) == ["/members/search"]
+    assert capability.app.fingerprint.screen_fingerprints["/members/search"], "has controls"
 
 
 def test_the_typed_param_becomes_a_param_ref_and_its_value_is_nowhere_in_the_artifact(

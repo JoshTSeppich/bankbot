@@ -63,6 +63,12 @@ class RedactionRules(StrictModel):
     mask_selectors: list[str]
 
 
+class FingerprintRules(StrictModel):
+    """How far a screen's tab sequence may drift from the recording before it is a mismatch."""
+
+    max_distance_ratio: float = 0.25
+
+
 class Policy(StrictModel):
     """The whole of policy.yaml, typed, with its regexes compiled once at load.
 
@@ -75,6 +81,7 @@ class Policy(StrictModel):
     allowed_actions: list[ActionType]
     risky: RiskRules
     redaction: RedactionRules
+    fingerprint: FingerprintRules = FingerprintRules()
 
     _allowed_route_patterns: list[re.Pattern[str]] = PrivateAttr(default_factory=list)
     _risky_route_patterns: list[re.Pattern[str]] = PrivateAttr(default_factory=list)

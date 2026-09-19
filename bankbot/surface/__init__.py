@@ -15,7 +15,8 @@ Governed by ADR-0006 (surface abstraction) and ADR-0002 (locator strategy).
 """
 
 from bankbot.surface.browser import headed_requested, open_page
-from bankbot.surface.playwright_surface import PlaywrightSurface, hash_aria
+from bankbot.surface.fingerprint import distance, screen_fingerprint
+from bankbot.surface.playwright_surface import PlaywrightSurface
 from bankbot.surface.types import (
     ActionFailed,
     ActResult,
@@ -43,7 +44,8 @@ __all__ = [
     "ReadResult",
     "Surface",
     "TargetNotFound",
-    "hash_aria",
+    "distance",
     "headed_requested",
     "open_page",
+    "screen_fingerprint",
 ]

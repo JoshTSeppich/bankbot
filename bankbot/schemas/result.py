@@ -35,11 +35,18 @@ class WarningCode(StrEnum):
 
 
 class ReplayWarning(StrictModel):
-    """A non-fatal signal: the run went on, but the page is not quite what was recorded."""
+    """A non-fatal signal: the run went on, but the page is not quite what was recorded.
+
+    distance and length are set for a variant_mismatch measured on a
+    screen's tab sequence: how many edits separate the live screen from
+    the recording, out of how many controls.
+    """
 
     code: WarningCode
     step_id: str | None = None
     detail: str
+    distance: int | None = None
+    length: int | None = None
 
 
 class ResultBase(StrictModel):

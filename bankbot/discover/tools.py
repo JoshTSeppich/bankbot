@@ -46,11 +46,15 @@ class ProposedAction(StrictModel):
     summary: str | None = None
 
 
+# strict makes the API guarantee the input matches the schema, so a reply can never omit
+# the action or invent a field. Without it a malformed reply once ended a run with a crash.
 ACT_TOOL: ToolParam = {
     "name": "act",
     "description": "Take exactly one action on the page toward the goal.",
+    "strict": True,
     "input_schema": {
         "type": "object",
+        "additionalProperties": False,
         "properties": {
             "reasoning": {
                 "type": "string",
@@ -99,6 +103,7 @@ def system_prompt(spec: GoalSpec, params: dict[str, str]) -> str:
         "Rules. Use extract on the element whose text is the output. After your last "
         "action, call assert_state describing the state that proves the goal is reached. "
         "Only then call done. An action the policy blocks comes back as 'blocked'; do not "
-        "repeat it, find another way or finish. Never act on anything that changes a "
-        "member's account."
+        "repeat it, find another way or finish. An action that changes a member's account "
+        "needs a person's approval: if the goal needs one, propose it and the policy will "
+        "ask them."
     )

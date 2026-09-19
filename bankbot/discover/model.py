@@ -25,6 +25,7 @@ from anthropic.types import (
     ToolResultBlockParam,
     ToolUseBlockParam,
 )
+from pydantic import ValidationError
 
 from bankbot.discover.tools import ACT_TOOL, ProposedAction
 from bankbot.schemas import StrictModel
@@ -85,12 +86,20 @@ class ClaudeDecider:
             messages=messages,
         )
         response = raw.parse()
+        request_id = raw.headers.get("request-id")
         for block in response.content:
             if block.type == "tool_use":
+                try:
+                    action = ProposedAction.model_validate(block.input)
+                except ValidationError as bad:
+                    raise ModelGaveMalformedAction(
+                        f"{self._model} called act with input that does not fit "
+                        f"(request {request_id}): {bad.error_count()} errors"
+                    ) from bad
                 return Decided(
-                    action=ProposedAction.model_validate(block.input),
+                    action=action,
                     tool_use_id=block.id,
-                    request_id=raw.headers.get("request-id"),
+                    request_id=request_id,
                     input_tokens=response.usage.input_tokens,
                     output_tokens=response.usage.output_tokens,
                 )
@@ -99,6 +108,10 @@ class ClaudeDecider:
 
 class ModelGaveNoAction(Exception):
     """The model replied without a tool call even though the tool was forced."""
+
+
+class ModelGaveMalformedAction(Exception):
+    """The tool input did not fit ProposedAction. The tool is strict, so this is the API's bug."""
 
 
 def make_client() -> anthropic.Anthropic:

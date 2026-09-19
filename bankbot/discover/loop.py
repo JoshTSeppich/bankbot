@@ -282,9 +282,10 @@ class Discovery:
 
     def _apply_act(self, action: ProposedAction, observation: Observation) -> Applied:
         kind = ActionType(action.action.value)
-        checked_url = (
-            action.url or observation.url if kind is ActionType.NAVIGATE else observation.url
-        )
+        # A navigate is judged by where it goes; everything else by where the page is.
+        checked_url = observation.url
+        if kind is ActionType.NAVIGATE and action.url:
+            checked_url = action.url
         decision = self.policy.check(checked_url, kind, action.name)
         if not decision.allowed:
             self._consecutive_blocks += 1

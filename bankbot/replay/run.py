@@ -201,7 +201,7 @@ class Replay:
         (a recovery may point elsewhere), otherwise the result that ends
         the run.
         """
-        retries_left = step.on_fail.attempts if isinstance(step.on_fail, Retry) else 0
+        retries_left = step.on_fail.retries if isinstance(step.on_fail, Retry) else 0
         while True:
             if self.escalation.aborted():
                 return self._failure(step, "the run to continue", "aborted by the operator")

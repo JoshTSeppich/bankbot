@@ -139,7 +139,7 @@
       },
       "on_fail": {
         "kind": "retry",
-        "attempts": 2
+        "retries": 2
       }
     },
     {

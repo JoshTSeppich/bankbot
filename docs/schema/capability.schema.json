@@ -352,7 +352,7 @@
     },
     "Retry": {
       "additionalProperties": false,
-      "description": "On failure, try the same step again a bounded number of times (slow loads).",
+      "description": "On failure, try the same step again, up to `retries` more times (slow loads).\n\nretries counts the extra tries, not the total: retries 2 means the\nstep runs at most three times.",
       "properties": {
         "kind": {
           "const": "retry",
@@ -360,14 +360,14 @@
           "title": "Kind",
           "type": "string"
         },
-        "attempts": {
+        "retries": {
           "minimum": 1,
-          "title": "Attempts",
+          "title": "Retries",
           "type": "integer"
         }
       },
       "required": [
-        "attempts"
+        "retries"
       ],
       "title": "Retry",
       "type": "object"

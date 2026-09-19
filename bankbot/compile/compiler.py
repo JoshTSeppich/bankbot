@@ -181,7 +181,7 @@ def _acted_step(
         )
     if kind is ActionType.CLICK and wait_for is not None and wait_for.url_pattern is not None:
         # A click that navigates is where slow loads bite; a bounded retry covers them.
-        step = step.model_copy(update={"on_fail": Retry(attempts=NAVIGATION_RETRIES)})
+        step = step.model_copy(update={"on_fail": Retry(retries=NAVIGATION_RETRIES)})
     return step
 
 

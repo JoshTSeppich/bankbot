@@ -17,7 +17,7 @@ from typing import Any
 
 from playwright.sync_api import Frame, Page
 
-from bankbot.surface.frames import frame_segment
+from bankbot.surface.frames import frame_segment, live_children
 from bankbot.surface.types import HumanAction
 
 BINDING_NAME = "__bankbotHumanAction"
@@ -110,10 +110,11 @@ class HumanWatcher:
 
 
 def _frame_path(frame: Frame) -> list[str]:
+    """The frame_path observe() would give, so a person's action and the artifact agree."""
     path: list[str] = []
     current = frame
     while current.parent_frame is not None:
-        siblings = current.parent_frame.child_frames
+        siblings = live_children(current.parent_frame)
         path.insert(0, frame_segment(current, siblings.index(current)))
         current = current.parent_frame
     return path

@@ -137,10 +137,14 @@ class LiteralValue(StrictModel):
 
 
 class Retry(StrictModel):
-    """On failure, try the same step again a bounded number of times (slow loads)."""
+    """On failure, try the same step again, up to `retries` more times (slow loads).
+
+    retries counts the extra tries, not the total: retries 2 means the
+    step runs at most three times.
+    """
 
     kind: Literal["retry"] = "retry"
-    attempts: Annotated[int, Field(ge=1)]
+    retries: Annotated[int, Field(ge=1)]
 
 
 class Recover(StrictModel):

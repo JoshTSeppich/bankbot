@@ -107,7 +107,7 @@ def test_url_changes_become_waits_and_the_last_assert_becomes_the_checkpoint(
     search = next(step for step in capability.steps if step.id == "click_search")
     opened = next(step for step in capability.steps if step.id == "click_dana_whitfield")
     assert search.wait_for is not None and search.wait_for.url_pattern == "/members/results$"
-    assert search.on_fail == Retry(attempts=2)
+    assert search.on_fail == Retry(retries=2)
     assert opened.wait_for is not None and opened.wait_for.url_pattern == "/members/[^/]+$"
     assert capability.checkpoint.text_visible == "Savings balance"
 

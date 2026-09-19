@@ -1,0 +1,329 @@
+{
+  "id": "lookup_savings_balance",
+  "name": "Look up a member's savings balance",
+  "version": "1.0.0",
+  "app": {
+    "vendor": "example-cu",
+    "app_id": "legacy-core-teller",
+    "variant": "default",
+    "fingerprint": {
+      "title": "Legacy Core Teller",
+      "version": "7.2.1",
+      "screen_hashes": {
+        "/members/search": "sha256:7a6185e87916b5f6730d326621f4be54f82c66f41c1cf62f8ceb87e551a6fb97"
+      }
+    }
+  },
+  "created_from_run": {
+    "run_id": "01-discovery",
+    "model": "claude-opus-4-8",
+    "sdk_versions": {
+      "anthropic": "1.7.0",
+      "playwright": "1.56.0"
+    },
+    "started_at": "2026-09-19T16:51:21.739565Z",
+    "finished_at": "2026-09-19T16:51:42.084122Z",
+    "request_ids": [
+      "req_011CfD9JJH8q5fQpdfsF5bU8",
+      "req_011CfD9JYg59cWtVfCdi34pf",
+      "req_011CfD9Jm1yPNtsoFQDgWVVA",
+      "req_011CfD9JwTmohu1PHzh4Hnak",
+      "req_011CfD9K9S6uPu4hnWJr9X7m",
+      "req_011CfD9KLuRdZmnmWVu2kVtz",
+      "req_011CfD9Ka6RfZKEGD6rRG2JG"
+    ]
+  },
+  "inputs": {
+    "member_id": {
+      "type": "string",
+      "pattern": "^M-[0-9]+$",
+      "required": true,
+      "example": "M-101"
+    }
+  },
+  "outputs": {
+    "savings_balance": {
+      "type": "money",
+      "extract": {
+        "candidates": [
+          {
+            "strategy": "css_structural",
+            "value": "th:text-is(\"Savings balance\") + td",
+            "confidence": 0.85,
+            "reasoning": "The cell right after its row header; survives rows moving."
+          },
+          {
+            "strategy": "css_structural",
+            "value": "body > table > tbody > tr:nth-of-type(2) > td > table:nth-of-type(2) > tbody > tr:nth-of-type(1) > td",
+            "confidence": 0.4,
+            "reasoning": "Structural path from the document root; breaks when the layout changes."
+          },
+          {
+            "strategy": "bbox",
+            "value": "163,144,88,23",
+            "confidence": 0.1,
+            "reasoning": "Screen position at recording time; a last resort."
+          }
+        ],
+        "frame_path": []
+      }
+    }
+  },
+  "preconditions": [],
+  "steps": [
+    {
+      "id": "open_start",
+      "action": "navigate",
+      "target": null,
+      "value": {
+        "literal": "/members/search"
+      },
+      "wait_for": {
+        "description": "The start screen /members/search is shown",
+        "url_pattern": "/members/search$",
+        "text_visible": null,
+        "target_visible": null
+      },
+      "on_fail": {
+        "kind": "recover",
+        "recovery_id": "session_expired"
+      }
+    },
+    {
+      "id": "type_member_id",
+      "action": "type",
+      "target": {
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "value": "textbox:Member ID",
+            "confidence": 0.95,
+            "reasoning": "Enter the member ID into the search field to look up the member."
+          },
+          {
+            "strategy": "label",
+            "value": "Member ID",
+            "confidence": 0.85,
+            "reasoning": "The control's label, which a person reads to find it."
+          },
+          {
+            "strategy": "css_structural",
+            "value": "body > form > table > tbody > tr > td:nth-of-type(1) > label > input",
+            "confidence": 0.4,
+            "reasoning": "Structural path from the document root; breaks when the layout changes."
+          },
+          {
+            "strategy": "bbox",
+            "value": "103,80,97,21",
+            "confidence": 0.1,
+            "reasoning": "Screen position at recording time; a last resort."
+          }
+        ],
+        "frame_path": [
+          "main"
+        ]
+      },
+      "value": {
+        "param": "member_id"
+      },
+      "wait_for": null,
+      "on_fail": {
+        "kind": "fail"
+      }
+    },
+    {
+      "id": "click_search",
+      "action": "click",
+      "target": {
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "value": "button:Search",
+            "confidence": 0.95,
+            "reasoning": "Click Search to look up the member's details."
+          },
+          {
+            "strategy": "css_structural",
+            "value": "body > form > table > tbody > tr > td:nth-of-type(2) > button",
+            "confidence": 0.4,
+            "reasoning": "Structural path from the document root; breaks when the layout changes."
+          },
+          {
+            "strategy": "bbox",
+            "value": "214,80,58,21",
+            "confidence": 0.1,
+            "reasoning": "Screen position at recording time; a last resort."
+          }
+        ],
+        "frame_path": [
+          "main"
+        ]
+      },
+      "value": null,
+      "wait_for": {
+        "description": "The page moved to /members/results$",
+        "url_pattern": "/members/results$",
+        "text_visible": null,
+        "target_visible": null
+      },
+      "on_fail": {
+        "kind": "retry",
+        "attempts": 2
+      }
+    },
+    {
+      "id": "click_dana_whitfield",
+      "action": "click",
+      "target": {
+        "candidates": [
+          {
+            "strategy": "role_name",
+            "value": "link:Dana Whitfield",
+            "confidence": 0.95,
+            "reasoning": "Click the member's name link to open their details page which should show the savings balance."
+          },
+          {
+            "strategy": "css_structural",
+            "value": "body > table > tbody > tr:nth-of-type(2) > td > table > tbody > tr > td:nth-of-type(2) > a",
+            "confidence": 0.4,
+            "reasoning": "Structural path from the document root; breaks when the layout changes."
+          },
+          {
+            "strategy": "bbox",
+            "value": "127,98,96,16",
+            "confidence": 0.1,
+            "reasoning": "Screen position at recording time; a last resort."
+          }
+        ],
+        "frame_path": []
+      },
+      "value": null,
+      "wait_for": {
+        "description": "The page moved to /members/[^/]+$",
+        "url_pattern": "/members/[^/]+$",
+        "text_visible": null,
+        "target_visible": null
+      },
+      "on_fail": {
+        "kind": "retry",
+        "attempts": 2
+      }
+    },
+    {
+      "id": "read_savings_balance",
+      "action": "extract",
+      "target": null,
+      "value": {
+        "output": "savings_balance"
+      },
+      "wait_for": null,
+      "on_fail": {
+        "kind": "fail"
+      }
+    }
+  ],
+  "checkpoint": {
+    "description": "Member [REDACTED] detail page shows Savings balance $4,242.00",
+    "url_pattern": null,
+    "text_visible": "Savings balance",
+    "target_visible": null
+  },
+  "outcomes": [
+    {
+      "code": "member_not_found",
+      "matches": {
+        "description": "The search reported no match",
+        "url_pattern": null,
+        "text_visible": "No member found",
+        "target_visible": null
+      },
+      "message": "No member exists with that member id."
+    }
+  ],
+  "recoveries": [
+    {
+      "id": "session_expired",
+      "matches": {
+        "description": "The app is showing the login page",
+        "url_pattern": "/login",
+        "text_visible": null,
+        "target_visible": null
+      },
+      "steps": [
+        {
+          "id": "login_username",
+          "action": "type",
+          "target": {
+            "candidates": [
+              {
+                "strategy": "role_name",
+                "value": "textbox:Username",
+                "confidence": 0.95,
+                "reasoning": "Accessible name on the login form."
+              }
+            ],
+            "frame_path": []
+          },
+          "value": {
+            "secret": "BANKBOT_USERNAME"
+          },
+          "wait_for": null,
+          "on_fail": {
+            "kind": "fail"
+          }
+        },
+        {
+          "id": "login_password",
+          "action": "type",
+          "target": {
+            "candidates": [
+              {
+                "strategy": "role_name",
+                "value": "textbox:Password",
+                "confidence": 0.95,
+                "reasoning": "Accessible name on the login form."
+              }
+            ],
+            "frame_path": []
+          },
+          "value": {
+            "secret": "BANKBOT_PASSWORD"
+          },
+          "wait_for": null,
+          "on_fail": {
+            "kind": "fail"
+          }
+        },
+        {
+          "id": "login_submit",
+          "action": "click",
+          "target": {
+            "candidates": [
+              {
+                "strategy": "role_name",
+                "value": "button:Sign in",
+                "confidence": 0.95,
+                "reasoning": "The only submit button on the login form."
+              }
+            ],
+            "frame_path": []
+          },
+          "value": null,
+          "wait_for": {
+            "description": "The signed-in banner is back",
+            "url_pattern": null,
+            "text_visible": "Signed in as",
+            "target_visible": null
+          },
+          "on_fail": {
+            "kind": "fail"
+          }
+        }
+      ],
+      "resume_from_step": "open_start",
+      "max_attempts": 3
+    }
+  ],
+  "risk": "safe",
+  "approval": "draft"
+}

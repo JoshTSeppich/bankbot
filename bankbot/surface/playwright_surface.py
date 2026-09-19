@@ -30,6 +30,7 @@ from bankbot.surface.types import (
     ActResult,
     FrameNotFound,
     FrameSnapshot,
+    Inspection,
     Observation,
     ObservationUnavailable,
     ReadResult,
@@ -94,6 +95,14 @@ class PlaywrightSurface:
     def resolve(self, target: TargetRef, timeout_ms: int = 2000) -> int:
         """Find the control and return only the winning index; the handle stays in here."""
         return resolve_target(self._page, target, timeout_ms).index
+
+    def inspect(self, target: TargetRef, timeout_ms: int = 2000) -> Inspection:
+        """Resolve and describe; the element is untouched."""
+        resolved = resolve_target(self._page, target, timeout_ms)
+        element = None
+        if resolved.locator is not None:
+            element = element_facts(resolved.locator, target.frame_path)
+        return Inspection(candidate_index=resolved.index, element=element)
 
     def act(
         self,

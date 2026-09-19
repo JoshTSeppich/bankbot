@@ -324,3 +324,82 @@ def test_secret_values_never_appear_in_the_run_log(
     log = run_dir.log_path.read_text()
     assert "teller-demo-password" not in log
     assert "secret:BANKBOT_PASSWORD" in log
+
+
+def test_a_structural_candidate_that_lands_on_a_risky_control_is_caught_by_its_screen_name(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    # The artifact calls the control "Continue"; no such button exists, and the structural
+    # fallback resolves to the only button on the detail page, which is "Close account".
+    capability_json["steps"].insert(
+        4,
+        {
+            "id": "continue",
+            "action": "click",
+            "target": {
+                "candidates": [
+                    {
+                        "strategy": "role_name",
+                        "value": "button:Continue",
+                        "confidence": 0.9,
+                        "reasoning": "recorded as a harmless continue button",
+                    },
+                    {
+                        "strategy": "css_structural",
+                        "value": "form button",
+                        "confidence": 0.4,
+                        "reasoning": "the button in the form",
+                    },
+                ],
+                "frame_path": [],
+            },
+            "value": None,
+            "wait_for": None,
+            "on_fail": {"kind": "fail"},
+        },
+    )
+    escalation = RecordingEscalation(InterventionDecision.ABORT)
+    replay, _ = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        escalation=escalation,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.step_id == "continue"
+    assert escalation.requests[0].reason is InterventionReason.RISKY_NEEDS_APPROVAL
+    assert "Close account" in result.observed
+    assert "Account closed" not in page.content()
+
+
+def test_a_navigate_is_checked_against_its_destination_not_the_page_it_leaves(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    capability_json["steps"].insert(
+        1,
+        {
+            "id": "wander",
+            "action": "navigate",
+            "target": None,
+            "value": {"literal": "/admin/faults"},
+            "wait_for": None,
+            "on_fail": {"kind": "fail"},
+        },
+    )
+    replay, _ = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.step_id == "wander"
+    assert "/admin/faults" in result.observed
+    assert "/admin/faults" not in page.url

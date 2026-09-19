@@ -80,6 +80,17 @@ class ActResult(StrictModel):
     element: ElementFacts | None
 
 
+class Inspection(StrictModel):
+    """What a target resolves to right now, before anything is done to it.
+
+    element is None when a bounding-box candidate won: a point has no
+    element behind it to describe, which is one more reason bbox is last.
+    """
+
+    candidate_index: int
+    element: ElementFacts | None
+
+
 class ReadResult(StrictModel):
     """The text of a resolved control, the candidate that found it, and the element's facts.
 
@@ -168,6 +179,15 @@ class Surface(Protocol):
         The winning index is the drift signal: index 0 means the page still
         looks the way it did at recording time; anything later means it
         changed and a weaker locator caught it (ADR-0002).
+        """
+        ...
+
+    def inspect(self, target: TargetRef, timeout_ms: int = 2000) -> Inspection:
+        """Resolve the target and describe the element, without touching it.
+
+        Replay asks the policy about the control that actually resolved,
+        not the name the artifact recorded for it; the two differ exactly
+        when a later candidate won.
         """
         ...
 

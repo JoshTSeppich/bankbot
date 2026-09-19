@@ -16,7 +16,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from bankbot.evidence import Event, EvidenceWriter
-from bankbot.policy import Policy
+from bankbot.policy import Decision, Policy
 from bankbot.replay.values import OutputUnreadable, describe_value, parse_output, value_for
 from bankbot.schemas import (
     ActionType,
@@ -140,7 +140,11 @@ class StepRunner:
 
     def _act(self, step: Step) -> Attempted:
         control = control_name(step.target)
-        decision = self.policy.check(self.url(), step.action, control)
+        value = value_for(step, self.params, self.secrets)
+        if step.action is ActionType.NAVIGATE and isinstance(step.value, LiteralValue):
+            # Artifacts store paths; the deployment they run against is a run-time fact.
+            value = self.base_url + step.value.literal
+        decision = self._ask_policy(step, control, value)
         if not decision.allowed:
             self.writer.event(Event.POLICY_BLOCKED, step_id=step.id, reason=decision.reason)
             raise PolicyBlocked(f"blocked: {decision.reason}")
@@ -148,13 +152,9 @@ class StepRunner:
         if decision.risky and not approved:
             raise StepFailed(
                 "a human approving this risky step",
-                f"{step.action.value} on {control!r} is risky and the capability is a draft",
+                f"{step.action.value} on {control!r}: {decision.reason}; the capability is a draft",
                 InterventionReason.RISKY_NEEDS_APPROVAL,
             )
-        value = value_for(step, self.params, self.secrets)
-        if step.action is ActionType.NAVIGATE and isinstance(step.value, LiteralValue):
-            # Artifacts store paths; the deployment they run against is a run-time fact.
-            value = self.base_url + step.value.literal
         try:
             result = self.surface.act(step.action, step.target, value, self.step_timeout_ms)
         except TargetNotFound as missing:
@@ -175,6 +175,41 @@ class StepRunner:
                 self.reason_now(),
             ) from failed
         return Attempted(candidate_index=result.candidate_index)
+
+    def _ask_policy(self, step: Step, control: str | None, value: str | None) -> Decision:
+        """Ask about what will actually happen, not what the artifact says will happen.
+
+        A navigate is checked against its destination, not the page it
+        leaves. A click, type or select is checked against the control
+        that resolved on screen as well as the recorded name; the two
+        differ exactly when a later candidate won, and a structural or
+        bbox candidate can land on a control the recording never named.
+        """
+        if step.action is ActionType.NAVIGATE:
+            return self.policy.check(value or self.url(), step.action, control)
+        url = self.url()
+        decision = self.policy.check(url, step.action, control)
+        if decision.risky:
+            return decision.model_copy(update={"reason": f"{control!r} is classed as risky"})
+        if step.target is None:
+            return decision
+        on_screen = self._name_on_screen(step.target)
+        if on_screen is not None and on_screen != control and self.policy.is_risky(url, on_screen):
+            return decision.model_copy(
+                update={
+                    "risky": True,
+                    "reason": f"resolved to {on_screen!r}, which is classed as risky",
+                }
+            )
+        return decision
+
+    def _name_on_screen(self, target: TargetRef) -> str | None:
+        try:
+            seen = self.surface.inspect(target, self.step_timeout_ms)
+        except (TargetNotFound, FrameNotFound):
+            # act() will fail the same way and report it with the full candidate list.
+            return None
+        return seen.element.name if seen.element is not None else None
 
     def _extract(self, step: Step) -> Attempted:
         if not isinstance(step.value, OutputRef):

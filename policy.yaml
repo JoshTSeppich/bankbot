@@ -32,6 +32,6 @@ risky:
 # Redaction: keeps credentials and member data out of logs and screenshots.
 redaction:
   # Any environment variable whose name ends in one of these holds a secret.
-  secret_env_suffixes: [_KEY, _TOKEN, _SECRET, _ID]
+  secret_env_suffixes: [_KEY, _TOKEN, _SECRET, _ID, _PASSWORD]
   # Fields blurred in every screenshot before it is saved.
   mask_selectors: ["input[type=password]"]

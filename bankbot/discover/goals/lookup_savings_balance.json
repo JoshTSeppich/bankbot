@@ -5,7 +5,7 @@
   "app": {"vendor": "example-cu", "app_id": "legacy-core-teller", "variant": "default"},
   "start_path": "/members/search",
   "inputs": {
-    "member_id": {"type": "string", "pattern": "^M-[0-9]+$", "required": true, "example": "M-100"}
+    "member_id": {"type": "string", "pattern": "^M-[0-9]+$", "required": true, "example": "M-101"}
   },
   "outputs": {"savings_balance": "money"},
   "outcomes": [

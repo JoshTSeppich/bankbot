@@ -40,6 +40,7 @@ from bankbot.replay.escalation import Escalation
 from bankbot.replay.values import check_params, check_secrets, parse_output
 from bankbot.schemas import (
     ActionType,
+    AppFingerprint,
     Candidate,
     InterventionDecision,
     InterventionReason,
@@ -123,6 +124,7 @@ class Discovery:
         self._last_screen: tuple[str, str] | None = None
         self._input_tokens = 0
         self._output_tokens = 0
+        self._fingerprint: AppFingerprint | None = None
 
     # --- the run ---------------------------------------------------------
 
@@ -149,6 +151,7 @@ class Discovery:
             goal=self.spec.goal,
             params=dict(self.params),
             base_url=self.base_url,
+            fingerprint=self._fingerprint,
             model=self.decider.model,
             sdk_versions={"anthropic": version("anthropic"), "playwright": version("playwright")},
             started_at=started_at,
@@ -189,6 +192,13 @@ class Discovery:
                 if failed is not None:
                     raise DiscoveryCouldNotStart(f"{recovery.id}: {failed}")
                 self.surface.act(ActionType.NAVIGATE, None, start_url, ACT_TIMEOUT_MS)
+        # Recorded here, on the start screen, so replay compares like with like.
+        actual = self.surface.fingerprint()
+        self._fingerprint = AppFingerprint(
+            title=actual.title,
+            version=actual.version,
+            screen_hashes={self.spec.start_path: actual.screen_hashes["current"]},
+        )
 
     def _loop(self) -> tuple[StopReason, str]:
         deadline = time.monotonic() + self.max_seconds

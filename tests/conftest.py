@@ -4,7 +4,10 @@ Playwright's sync API allows one running driver per thread, so every suite
 that needs a page shares these instead of starting its own.
 """
 
+import json
 from collections.abc import Iterator
+from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -47,3 +50,13 @@ def page(browser: Browser, base_url: str) -> Iterator[Page]:
 @pytest.fixture
 def policy() -> Policy:
     return load_policy()
+
+
+FIXTURE = Path(__file__).parent / "fixtures" / "lookup_savings_balance.json"
+
+
+@pytest.fixture
+def capability_json() -> dict[str, Any]:
+    """The hand-written capability as a plain dict, so a test can break one field on purpose."""
+    data: dict[str, Any] = json.loads(FIXTURE.read_text())
+    return data

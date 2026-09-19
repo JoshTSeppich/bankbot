@@ -1,11 +1,8 @@
 """Fixtures: a Replay wired to the shared demo app and browser from tests/conftest.py."""
 
-import json
 from pathlib import Path
-from typing import Any
 
 import httpx
-import pytest
 from playwright.sync_api import Page
 
 from bankbot.evidence import EvidenceWriter, RunDir, new_run_id
@@ -15,14 +12,7 @@ from bankbot.replay.escalation import Escalation
 from bankbot.schemas import Capability
 from bankbot.surface import PlaywrightSurface
 
-FIXTURE = Path(__file__).parent.parent / "fixtures" / "lookup_savings_balance.json"
 TEST_SECRETS = {"BANKBOT_USERNAME": "teller", "BANKBOT_PASSWORD": "teller-demo-password"}
-
-
-@pytest.fixture
-def capability_json() -> dict[str, Any]:
-    data: dict[str, Any] = json.loads(FIXTURE.read_text())
-    return data
 
 
 def arm_faults(base_url: str, **faults: int) -> None:

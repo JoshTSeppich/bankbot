@@ -12,6 +12,7 @@ Governed by ADR-0006 (the browser is opened through the surface, never here).
 
 import argparse
 import json
+import os
 import sys
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -20,7 +21,8 @@ from pathlib import Path
 import httpx
 from dotenv import load_dotenv
 
-from bankbot.discover import ClaudeDecider, Discovery, load_goal_spec
+from bankbot.compile import compile_capability
+from bankbot.discover import ClaudeDecider, Discovery, StopReason, load_goal_spec
 from bankbot.evidence import EvidenceWriter, RunDir, new_run_id
 from bankbot.policy import load_policy
 from bankbot.replay import Replay
@@ -89,7 +91,12 @@ def _discover(args: argparse.Namespace) -> int:
     print(f"stopped: {transcript.stop_reason.value} after {len(transcript.steps)} steps")
     print(f"tokens: {transcript.input_tokens} in, {transcript.output_tokens} out")
     print(f"run directory: {run_dir.path}")
-    return 0 if transcript.stop_reason.value == "done" else 1
+    if transcript.stop_reason is not StopReason.DONE:
+        return 1
+    capability = compile_capability(transcript, spec, secrets=os.environ)
+    writer.save_model("capability", capability)
+    print(f"capability: {run_dir.capability_path} ({len(capability.steps)} steps)")
+    return 0
 
 
 def _replay(args: argparse.Namespace) -> int:

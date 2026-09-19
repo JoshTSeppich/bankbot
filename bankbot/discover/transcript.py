@@ -20,7 +20,7 @@ from pydantic import Field
 
 from bankbot.discover.tools import ProposedAction
 from bankbot.policy import Decision
-from bankbot.schemas import StrictModel
+from bankbot.schemas import AppFingerprint, StrictModel
 from bankbot.surface import ElementFacts, Observation
 
 
@@ -58,6 +58,7 @@ class Transcript(StrictModel):
     goal: str
     params: dict[str, str]
     base_url: str
+    fingerprint: AppFingerprint | None = None
     model: str
     sdk_versions: dict[str, str]
     started_at: datetime

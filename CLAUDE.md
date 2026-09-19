@@ -8,7 +8,7 @@ line-by-line in an interview. Two properties are non-negotiable and override spe
 2. **Git history must be immaculate.** A reviewer reading `git log --oneline` should be able to
    reconstruct how the system was built and why, without opening a single diff.
 
-Read `PLAN.md` first. Read `docs/adr/` before changing any load-bearing design.
+Read `docs/adr/` first, and again before changing any load-bearing design.
 
 ## Explainability rules
 
@@ -60,7 +60,6 @@ Read `PLAN.md` first. Read `docs/adr/` before changing any load-bearing design.
 ```
 README.md        setup, demo path, run-without-LLM path
 REPORT.md        seven mandated headings, exact wording from the brief
-PLAN.md          this build plan
 CLAUDE.md        this file
 docs/adr/        architecture decision records
 bankbot/         the package (target/ surface/ discover/ compile/ replay/ control/ policy/ evidence/)

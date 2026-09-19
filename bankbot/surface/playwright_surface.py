@@ -31,6 +31,7 @@ from bankbot.surface.types import (
     FrameNotFound,
     FrameSnapshot,
     Observation,
+    ObservationUnavailable,
     ReadResult,
     TargetNotFound,
 )
@@ -71,6 +72,12 @@ class PlaywrightSurface:
 
     def observe(self, screenshot_to: Path | None = None) -> Observation:
         """Snapshot every frame and, when asked, write a masked screenshot."""
+        try:
+            return self._observe(screenshot_to)
+        except PlaywrightError as error:
+            raise ObservationUnavailable(first_line(error)) from error
+
+    def _observe(self, screenshot_to: Path | None) -> Observation:
         frames = [
             FrameSnapshot(frame_path=path, aria=frame.locator("body").aria_snapshot())
             for path, frame in walk_frames(self._page)

@@ -101,6 +101,15 @@ class HumanAction(StrictModel):
     url: str
 
 
+class ObservationUnavailable(Exception):
+    """The page could not be snapshotted right now, usually because it is mid-navigation.
+
+    The old document is gone and the new one is not there yet. A caller
+    that is only watching (the controller's live view) skips the tick; a
+    caller that needs the observation treats it as a failed step.
+    """
+
+
 class TargetNotFound(Exception):
     """No candidate of a TargetRef resolved to exactly one visible element.
 

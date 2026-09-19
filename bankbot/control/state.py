@@ -31,7 +31,7 @@ from enum import StrEnum
 
 from bankbot.evidence import Event, EvidenceWriter, RunDir
 from bankbot.schemas import Capability, InterventionDecision, InterventionRequest
-from bankbot.surface import HumanAction, Surface
+from bankbot.surface import HumanAction, ObservationUnavailable, Surface
 
 IDLE_MS = 200
 LIVE_SCREENSHOT_EVERY_S = 1.0
@@ -202,9 +202,7 @@ class RunController:
                 last_screenshot is None
                 or time.monotonic() - last_screenshot >= LIVE_SCREENSHOT_EVERY_S
             ):
-                self._surface.observe(
-                    screenshot_to=self.run_dir.screenshot_path(LIVE_SCREENSHOT_NAME)
-                )
+                self._refresh_live_view()
                 last_screenshot = time.monotonic()
             state, decision = self._snapshot()
             if decision is not None:
@@ -213,6 +211,14 @@ class RunController:
                 self.abort(OPERATOR_LOST)
                 continue
             self._pump(IDLE_MS)
+
+    def _refresh_live_view(self) -> None:
+        try:
+            self._surface.observe(screenshot_to=self.run_dir.screenshot_path(LIVE_SCREENSHOT_NAME))
+        except ObservationUnavailable:
+            # The person is mid-click on a link; the page has no document to picture yet.
+            # The last picture stays up and the next tick takes a new one.
+            return
 
     def _lease_expired(self) -> bool:
         with self._lock:

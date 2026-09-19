@@ -9,6 +9,7 @@ from bankbot.control import ControlState, IllegalTransition, RunController
 from bankbot.control.state import HEARTBEAT_MISSES, OPERATOR_LOST
 from bankbot.evidence import read_events
 from bankbot.schemas import InterventionDecision
+from bankbot.surface import ObservationUnavailable
 from tests.control.conftest import a_request, current, wait_until
 
 FAST_HEARTBEAT_S = 0.05
@@ -184,3 +185,42 @@ def test_heartbeats_keep_a_person_in_control_past_the_lease(
 def test_a_heartbeat_outside_human_control_is_ignored(controller: RunController) -> None:
     controller.heartbeat()
     assert current(controller) is ControlState.AUTOMATION
+
+
+class FlakyLiveView:
+    """A surface whose first picture fails the way a page mid-navigation does."""
+
+    def __init__(self) -> None:
+        self.attempts = 0
+
+    def observe(self, screenshot_to: object = None) -> None:
+        self.attempts += 1
+        if self.attempts == 1:
+            raise ObservationUnavailable("Execution context was destroyed")
+
+    def watch_human(self, on_action: object) -> None:
+        return None
+
+    def unwatch_human(self) -> None:
+        return None
+
+
+def test_a_live_view_that_cannot_be_taken_mid_navigation_is_skipped_not_fatal(
+    controller: RunController,
+) -> None:
+    flaky = FlakyLiveView()
+    controller._surface = flaky  # type: ignore[assignment]
+    controller._pump = lambda ms: time.sleep(ms / 1000)
+
+    def operator() -> None:
+        wait_until(controller, ControlState.INTERVENTION_REQUESTED)
+        controller.take_control()
+        time.sleep(FAST_HEARTBEAT_S)
+        controller.hand_back()
+
+    thread = threading.Thread(target=operator)
+    thread.start()
+    decision = controller.request(a_request(controller.run_id))
+    thread.join()
+    assert decision is InterventionDecision.RESUME
+    assert flaky.attempts >= 1

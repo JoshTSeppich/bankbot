@@ -1,4 +1,4 @@
-"""The command line: discover, replay, operator. Wiring only; every decision lives in a module.
+"""The command line: discover, replay, operator, verify-evidence. Wiring only.
 
 Owns: argument parsing, starting the demo app in-process when no base URL is
 given, opening the browser, starting the operator pages when a person can
@@ -26,7 +26,8 @@ from dotenv import load_dotenv
 from bankbot.compile import compile_capability
 from bankbot.control import RunController, RunRegistry, create_operator_app
 from bankbot.discover import ClaudeDecider, Discovery, StopReason, load_goal_spec
-from bankbot.evidence import EvidenceWriter, RunDir, new_run_id
+from bankbot.evidence import EvidenceWriter, RunDir, event_sequence_hash, new_run_id, read_events
+from bankbot.evidence.verify import sequence_hashes, verify_evidence
 from bankbot.policy import load_policy
 from bankbot.replay import Replay
 from bankbot.schemas import REPLAY_RESULT_ADAPTER, Capability, Success
@@ -36,7 +37,9 @@ from bankbot.target import create_app, start_server
 GOALS_DIR = Path(__file__).parent / "discover" / "goals"
 DEFAULT_SPEC = GOALS_DIR / "lookup_savings_balance.json"
 DEFAULT_RUNS_DIR = Path("runs")
+DEFAULT_EVIDENCE_DIR = Path("evidence")
 OPERATOR_PORT = 8765
+VARIANT_PREFIXES = {"a": "", "b": "/b"}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -47,6 +50,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _discover(args)
     if args.command == "operator":
         return _operator(args)
+    if args.command == "verify-evidence":
+        return _verify(args)
     return _replay(args)
 
 
@@ -64,6 +69,10 @@ def build_parser() -> argparse.ArgumentParser:
     replay_cmd.add_argument("capability", type=Path)
     replay_cmd.add_argument("--fault", action="append", default=[], metavar="NAME=VALUE")
     replay_cmd.add_argument("--keep-trace", action="store_true")
+    replay_cmd.add_argument("--variant", choices=sorted(VARIANT_PREFIXES), default="a")
+    replay_cmd.add_argument(
+        "--times", type=int, default=1, help="repeat in fresh browsers; prints one hash per run"
+    )
     _add_run_options(replay_cmd)
 
     operator_cmd = commands.add_parser(
@@ -71,6 +80,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     operator_cmd.add_argument("--runs-dir", type=Path, default=DEFAULT_RUNS_DIR)
     operator_cmd.add_argument("--port", type=int, default=OPERATOR_PORT)
+
+    verify_cmd = commands.add_parser(
+        "verify-evidence", help="check every evidence directory the way a reviewer would"
+    )
+    verify_cmd.add_argument("root", type=Path, nargs="?", default=DEFAULT_EVIDENCE_DIR)
     return parser
 
 
@@ -114,39 +128,70 @@ def _discover(args: argparse.Namespace) -> int:
 def _replay(args: argparse.Namespace) -> int:
     capability = Capability.model_validate_json(args.capability.read_text())
     params = _parse_pairs(args.param)
+    faults = _parse_pairs(args.fault)
     policy = load_policy()
-    run_dir = RunDir.create(args.runs_dir, args.run_id or new_run_id())
-    writer = EvidenceWriter(run_dir, policy.redactor(extra_values=params.values()))
     registry = RunRegistry()
-    with running_target(args.base_url) as base_url, open_page() as page:
-        arm_faults(base_url, _parse_pairs(args.fault))
-        surface = PlaywrightSurface(page, policy.mask_selectors)
-        controller: RunController | None = None
-        if headed_requested():
-            # A person can see the browser, so a person can be asked. Headless runs
-            # stay unattended: nobody is there to take control.
-            controller = RunController(
-                run_dir, capability, sorted(params), surface=surface, writer=writer
-            )
-            registry.add(controller)
-            operator = start_server(create_operator_app(registry, args.runs_dir), OPERATOR_PORT)
-            print(f"operator page: {operator.base_url}/operator/{run_dir.run_id}", file=sys.stderr)
-        result = Replay(
-            capability,
-            params,
-            surface=surface,
-            policy=policy,
-            run_dir=run_dir,
-            writer=writer,
-            base_url=base_url,
-            escalation=controller,
-            keep_trace=args.keep_trace,
-        ).run()
-        if controller is not None:
-            controller.finish(result.kind)
-    print(json.dumps(REPLAY_RESULT_ADAPTER.dump_python(result, mode="json"), indent=2))
-    print(f"run directory: {run_dir.path}", file=sys.stderr)
-    return 0 if isinstance(result, Success) or result.kind == "outcome" else 1
+    operator_started = False
+    exit_code = 0
+    with running_target(args.base_url) as target:
+        base_url = target + VARIANT_PREFIXES[args.variant]
+        for run_id in _run_ids(args.run_id or new_run_id(), args.times):
+            run_dir = RunDir.create(args.runs_dir, run_id)
+            writer = EvidenceWriter(run_dir, policy.redactor(extra_values=params.values()))
+            # A fresh browser and freshly armed faults per run, so every run starts
+            # from the same place; that is what makes the printed hashes comparable.
+            with open_page() as page:
+                arm_faults(target, faults)
+                surface = PlaywrightSurface(page, policy.mask_selectors)
+                controller: RunController | None = None
+                if headed_requested():
+                    # A person can see the browser, so a person can be asked. Headless
+                    # runs stay unattended: nobody is there to take control.
+                    controller = RunController(
+                        run_dir, capability, sorted(params), surface=surface, writer=writer
+                    )
+                    registry.add(controller)
+                    if not operator_started:
+                        operator = start_server(
+                            create_operator_app(registry, args.runs_dir), OPERATOR_PORT
+                        )
+                        operator_started = True
+                    print(f"operator page: {operator.base_url}/operator/{run_id}", file=sys.stderr)
+                result = Replay(
+                    capability,
+                    params,
+                    surface=surface,
+                    policy=policy,
+                    run_dir=run_dir,
+                    writer=writer,
+                    base_url=base_url,
+                    escalation=controller,
+                    keep_trace=args.keep_trace,
+                ).run()
+                if controller is not None:
+                    controller.finish(result.kind)
+            print(json.dumps(REPLAY_RESULT_ADAPTER.dump_python(result, mode="json"), indent=2))
+            print(f"event sequence: {event_sequence_hash(read_events(run_dir))}")
+            print(f"run directory: {run_dir.path}", file=sys.stderr)
+            if not (isinstance(result, Success) or result.kind == "outcome"):
+                exit_code = 1
+    return exit_code
+
+
+def _run_ids(first: str, times: int) -> list[str]:
+    """`--times 5` with run id X writes X, X-2, X-3, X-4, X-5, so the runs sort together."""
+    return [first, *(f"{first}-{n}" for n in range(2, times + 1))]
+
+
+def _verify(args: argparse.Namespace) -> int:
+    """Hashes for every run, then every problem; a non-zero exit is the pre-commit signal."""
+    for run_id, digest in sequence_hashes(args.root).items():
+        print(f"{run_id}: {digest}")
+    problems = verify_evidence(args.root, load_policy().redactor())
+    for problem in problems:
+        print(problem, file=sys.stderr)
+    print(f"{len(problems)} problems in {args.root}", file=sys.stderr)
+    return 1 if problems else 0
 
 
 def _operator(args: argparse.Namespace) -> int:

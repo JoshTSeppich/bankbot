@@ -69,6 +69,15 @@ Harder: `Outcome` and `Recovery` matchers are `StateAssertion`s checked
 with a short timeout after every step, which costs about 300 ms per
 step on the happy path. I took the hit for the classification order.
 
-To revisit: recoveries retry the interrupted step. A recovery that
-should resume elsewhere uses `resume_from_step`, which nothing in this
-build exercises.
+Preconditions are the other use of the recoveries: the artifact says
+what must be true before step one ("Signed in as" is visible), and a
+fresh browser meets it by running the matching recovery before any step
+is tried. Logging in is a recovery, and `recoveries_used` says so on
+every run; nothing has to fail first.
+
+To revisit: a compiled recovery restarts the run from the first step
+(`resume_from_step`), because after a re-login the app is on its home
+screen and the interrupted step has nothing to retry into. Approvals are
+cleared on that rewind so an approved risky step asks again. A recovery
+that could resume in place would need the compiler to know which steps
+are idempotent, which it does not.

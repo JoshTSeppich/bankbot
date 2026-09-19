@@ -34,8 +34,15 @@ irreversible pattern). The caller decides what each means for it.
 | Enforcement point | Allowed is false | Risky is true |
 |---|---|---|
 | Discovery, before every act | Returned to the model as `blocked: <reason>`; two in a row ask a human | Same as blocked. The model never performs a risky action. |
-| Replay, before every act | The run stops as a `Failure` | Ask a human, unless the artifact is `approved` and the person already approved this step in this run |
+| Replay, before every act | The run stops as a `Failure` | Ask a human, unless the artifact is `approved` or the person approved this step in this run. An approval covers one attempt; a recovery rewind asks again |
 | Evidence, at every write | | |
+
+Replay asks about what will happen, not what the artifact says will
+happen: a navigate is checked against its destination, and a click
+against the accessible name of the control that resolved on screen as
+well as the recorded name. The two differ exactly when a later candidate
+won, and a structural candidate can land on a control the recording
+never named.
 
 Redaction is the third leg and lives in the same module. Every byte
 that reaches disk through the evidence writer goes through the
@@ -79,3 +86,9 @@ and a test pins it.
 Residual: the model still sees the injected text and may waste steps
 on it. The stuck rules bound that at two allowlist blocks or three
 unchanged screens, and a risky proposal ends its turn immediately.
+
+Residual: screenshots blur password fields and nothing else, and the
+discovery transcript stores every ARIA snapshot the model saw, member
+names and balances included. The demo data is fictional; a real
+deployment would need mask selectors for every member-data field and a
+transcript that stores less than the model saw.

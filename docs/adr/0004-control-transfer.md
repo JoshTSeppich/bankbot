@@ -44,7 +44,8 @@ step complete, checks the step's `wait_for` before trusting them.
 | Recording window | From the ask to the answer, not only while HUMAN | The engine is idle for exactly that span, so anything that happens on the page was a person. |
 | What is recorded | Clicks, edits and navigations as `human_action` events: kind, element description, frame, URL | Typed values are dropped in the browser, before they reach Python. |
 | Answers | Hand back (retry), mark step complete (check `wait_for`, then next step), abort | Three buttons. A stale button from a second tab is ignored and the page shows the real state. |
-| Lease | The operator page pings every 10 s while HUMAN; three misses aborts with reason `operator_lost` | A bank session is never held open for nobody. |
+| Lease | The operator page pings every 10 s while HUMAN; three misses aborts with reason `operator_lost`. Nobody taking control within 15 minutes aborts with reason `nobody_came` | A bank session is never held open for nobody, before or after someone arrives. |
+| Abort | Legal from any live state; replay asks the controller before every step, and a request on an aborted run is answered ABORT at once | An operator who sees a run going wrong can stop it before the next step, not only when it next asks. |
 | Operator page | Two Jinja pages, one stylesheet, the heartbeat is the only script | The mechanism is the deliverable; the page is not. |
 
 ## Alternatives rejected

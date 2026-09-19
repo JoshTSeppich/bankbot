@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Run detail — take control and hand back{% endblock %}
+{% block head %}{% if live %}<meta http-equiv="refresh" content="2">{% endif %}{% endblock %}
+{% block body %}
+<div class="bar">
+  <div class="brand"><strong>BankBot</strong><a href="/operator" class="muted">Queue</a><span>/</span><span class="mono" style="color: var(--text);">{{ run_id }}</span></div>
+  <div class="side"><span class="state {{ state_colour }}"><span class="dot"></span>{{ state_label }}</span><span class="who">operator</span></div>
+</div>
+
+<div class="detail">
+  <div class="main">
+    <div class="title">
+      <div>
+        <h1>{{ capability.name }}</h1>
+        <span class="sub">{{ app }} · the automation's own browser{% if intervention %}, paused at step {{ intervention.step_index + 1 }} of {{ intervention.step_count }}{% elif result_kind %}, finished: {{ result_kind }}{% endif %}</span>
+      </div>
+      {% if can_take %}<form method="post" action="/operator/{{ run_id }}/take"><button class="btn primary">Take control</button></form>
+      {% elif is_human %}<form method="post" action="/operator/{{ run_id }}/hand-back"><button class="btn">Hand back</button></form>
+      {% elif is_busy %}<button class="btn" disabled>Automation is running</button>{% endif %}
+    </div>
+
+    {% if is_human %}
+    <div class="banner"><span class="dot blue"></span>You are driving this session. Everything you do is written to the run record; anything you type is masked.</div>
+    <script>
+      // The lease. While you hold control this page pings; if the pings stop for three
+      // intervals the engine aborts the run as operator_lost rather than wait for nobody.
+      const ping = () => fetch("/operator/{{ run_id }}/heartbeat", { method: "POST" });
+      ping();
+      setInterval(ping, {{ heartbeat_ms }});
+    </script>
+    {% endif %}
+    {% if abort_reason == "operator_lost" %}
+    <div class="banner red"><span class="dot red"></span>Aborted: the operator's page stopped pinging while they held control, so the run was ended rather than left open.</div>
+    {% endif %}
+
+    <div class="live{% if is_human %} human{% endif %}">
+      {% if live %}<img src="/operator/{{ run_id }}/live.png?t={{ now }}" alt="Live view of the paused browser, refreshed every second">
+      {% else %}<span class="faint" style="font-size: 13px;">The run is over. The record is below.</span>{% endif %}
+      {% if intervention %}<span class="caption">{{ intervention.observed[:90] }}</span>{% endif %}
+      <span class="caption clock">{{ now }}</span>
+    </div>
+
+    <div class="section">
+      <span class="label">What the automation did before it stopped</span>
+      <div class="log">
+        {% for row in log %}<span><span class="t">{{ row.time }}</span><span class="e">{{ row.event }}</span>{{ row.detail }}</span>
+        {% endfor %}
+      </div>
+      <span class="links">{% if intervention and intervention.screenshot %}<a href="/operator/{{ run_id }}/files/{{ intervention.screenshot }}">Screenshot at {{ intervention.step_id }}</a> · {% endif %}<a href="/operator/{{ run_id }}/files/log.jsonl">Run record</a></span>
+    </div>
+  </div>
+
+  <div class="aside">
+    {% if intervention %}
+    <div class="block">
+      <span class="kicker amber">Why it stopped · {{ reason_kind }}</span>
+      <p class="headline">{{ reason_headline }}</p>
+      <p>{{ reason_explanation }}</p>
+    </div>
+    <div class="block">
+      <span class="kicker">{{ step_label }}</span>
+      <div class="kv"><span class="k">Expected</span><span>{{ intervention.expected }}</span><span class="k red">Observed</span><span>{{ intervention.observed }}</span></div>
+    </div>
+    {% endif %}
+    <div class="block">
+      <span class="kicker">The run</span>
+      <div class="kv">
+        <span class="k">Goal</span><span>{{ capability.name }}</span>
+        <span class="k">Capability</span><span class="mono">{{ capability.id }} {{ capability.version }}</span>
+        <span class="k">Started</span><span>{{ started }}</span>
+        <span class="k">Approval</span><span>{{ capability.approval.value }}</span>
+      </div>
+    </div>
+    <div class="block">
+      <span class="kicker">Inputs · values are never shown here</span>
+      <div class="kv inputs">
+        {% for name in param_names %}<span>{{ name }}</span><span class="faint">••••••••</span>{% endfor %}
+        {% for name in secret_names %}<span class="muted">{{ name }}</span><span class="faint">secret, resolved at run time</span>{% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="head"><span class="label">What you did</span><span class="muted" style="font-size: 13px;">{{ human_actions | length }} recorded</span></div>
+  {% if human_actions %}
+  <div class="actions-list">
+    {% for action in human_actions %}
+    <div class="action"><span class="mono faint">{{ loop.index }}</span><span class="kind">{{ action.kind }}</span><span class="text">{{ action.description }}{% if action.kind == "input" %}, value masked{% endif %}{% if action.frame_path %} · frame {{ action.frame_path | join("/") }}{% endif %}</span></div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty">Nothing yet. Take control and your clicks, typing and page changes will appear here as you make them.</p>
+  {% endif %}
+  {% if live %}
+  <div class="buttons">
+    <form method="post" action="/operator/{{ run_id }}/abort"><button class="btn small danger">Abort run</button></form>
+    {% if is_human %}<form method="post" action="/operator/{{ run_id }}/complete"><button class="btn small dark">Mark {{ intervention.step_id if intervention else "step" }} complete and resume</button></form>
+    {% else %}<button class="btn small" disabled>Mark {{ intervention.step_id if intervention else "step" }} complete and resume</button>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

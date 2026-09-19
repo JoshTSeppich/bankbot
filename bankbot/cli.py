@@ -1,7 +1,8 @@
-"""The command line: discover, replay. Wiring only; every decision lives in a module.
+"""The command line: discover, replay, operator. Wiring only; every decision lives in a module.
 
 Owns: argument parsing, starting the demo app in-process when no base URL is
-given, opening the browser, and printing the result. Nothing here decides
+given, opening the browser, starting the operator pages when a person can
+see the browser (HEADED=1), and printing the result. Nothing here decides
 anything a test would need to cover, which is why it has none of its own.
 
 Does not own: any logic. discover/, compile/, replay/ and control/ do the
@@ -14,6 +15,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -22,17 +24,19 @@ import httpx
 from dotenv import load_dotenv
 
 from bankbot.compile import compile_capability
+from bankbot.control import RunController, RunRegistry, create_operator_app
 from bankbot.discover import ClaudeDecider, Discovery, StopReason, load_goal_spec
 from bankbot.evidence import EvidenceWriter, RunDir, new_run_id
 from bankbot.policy import load_policy
 from bankbot.replay import Replay
 from bankbot.schemas import REPLAY_RESULT_ADAPTER, Capability, Success
-from bankbot.surface import PlaywrightSurface, open_page
+from bankbot.surface import PlaywrightSurface, headed_requested, open_page
 from bankbot.target import create_app, start_server
 
 GOALS_DIR = Path(__file__).parent / "discover" / "goals"
 DEFAULT_SPEC = GOALS_DIR / "lookup_savings_balance.json"
 DEFAULT_RUNS_DIR = Path("runs")
+OPERATOR_PORT = 8765
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -41,6 +45,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "discover":
         return _discover(args)
+    if args.command == "operator":
+        return _operator(args)
     return _replay(args)
 
 
@@ -59,6 +65,12 @@ def build_parser() -> argparse.ArgumentParser:
     replay_cmd.add_argument("--fault", action="append", default=[], metavar="NAME=VALUE")
     replay_cmd.add_argument("--keep-trace", action="store_true")
     _add_run_options(replay_cmd)
+
+    operator_cmd = commands.add_parser(
+        "operator", help="browse finished runs in the operator pages"
+    )
+    operator_cmd.add_argument("--runs-dir", type=Path, default=DEFAULT_RUNS_DIR)
+    operator_cmd.add_argument("--port", type=int, default=OPERATOR_PORT)
     return parser
 
 
@@ -105,21 +117,48 @@ def _replay(args: argparse.Namespace) -> int:
     policy = load_policy()
     run_dir = RunDir.create(args.runs_dir, args.run_id or new_run_id())
     writer = EvidenceWriter(run_dir, policy.redactor(extra_values=params.values()))
+    registry = RunRegistry()
     with running_target(args.base_url) as base_url, open_page() as page:
         arm_faults(base_url, _parse_pairs(args.fault))
+        surface = PlaywrightSurface(page, policy.mask_selectors)
+        controller: RunController | None = None
+        if headed_requested():
+            # A person can see the browser, so a person can be asked. Headless runs
+            # stay unattended: nobody is there to take control.
+            controller = RunController(
+                run_dir, capability, sorted(params), surface=surface, writer=writer
+            )
+            registry.add(controller)
+            operator = start_server(create_operator_app(registry, args.runs_dir), OPERATOR_PORT)
+            print(f"operator page: {operator.base_url}/operator/{run_dir.run_id}", file=sys.stderr)
         result = Replay(
             capability,
             params,
-            surface=PlaywrightSurface(page, policy.mask_selectors),
+            surface=surface,
             policy=policy,
             run_dir=run_dir,
             writer=writer,
             base_url=base_url,
+            escalation=controller,
             keep_trace=args.keep_trace,
         ).run()
+        if controller is not None:
+            controller.finish(result.kind)
     print(json.dumps(REPLAY_RESULT_ADAPTER.dump_python(result, mode="json"), indent=2))
     print(f"run directory: {run_dir.path}", file=sys.stderr)
     return 0 if isinstance(result, Success) or result.kind == "outcome" else 1
+
+
+def _operator(args: argparse.Namespace) -> int:
+    """Read-only browsing of finished runs; live control only exists inside a replay process."""
+    handle = start_server(create_operator_app(RunRegistry(), args.runs_dir), args.port)
+    print(f"operator pages at {handle.base_url}/operator (Ctrl-C to stop)")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        handle.stop()
+    return 0
 
 
 @contextmanager

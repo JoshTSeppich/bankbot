@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Run record — {{ run_id }}{% endblock %}
+{% block body %}
+<div class="bar">
+  <div class="brand"><strong>BankBot</strong><a href="/operator" class="muted">Queue</a><span>/</span><span class="mono" style="color: var(--text);">{{ run_id }}</span></div>
+  <div class="side"><span class="state {{ 'green' if result.kind == 'success' else 'grey' }}"><span class="dot"></span>{{ result.kind or "no result" }}</span><span class="who">operator</span></div>
+</div>
+<div class="page">
+  <div>
+    <h1>Run record</h1>
+    <p class="lede">This run is over. Its result, log and screenshots are below; nothing here is live.</p>
+  </div>
+  {% if result %}<div class="log"><span>{{ result | tojson(indent=2) }}</span></div>{% endif %}
+  <div class="section">
+    <span class="label">Log</span>
+    <div class="log">{% for row in log %}<span><span class="t">{{ row.time }}</span><span class="e">{{ row.event }}</span>{{ row.detail }}</span>
+    {% endfor %}</div>
+    <span class="links">{% for name in files %}<a href="/operator/{{ run_id }}/files/{{ name }}">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}</span>
+  </div>
+  <div class="shots">{% for name in screenshots %}<a href="/operator/{{ run_id }}/files/screenshots/{{ name }}"><img src="/operator/{{ run_id }}/files/screenshots/{{ name }}" alt="{{ name }}"></a>{% endfor %}</div>
+</div>
+{% endblock %}

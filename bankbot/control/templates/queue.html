@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Queue — runs waiting for a person{% endblock %}
+{% block head %}<meta http-equiv="refresh" content="3">{% endblock %}
+{% block body %}
+<div class="bar">
+  <div class="brand"><strong>BankBot</strong><span>Operator console</span></div>
+  <div class="side"><a href="/operator" style="color: var(--text); font-weight: 500;">Queue</a><span class="who">operator</span></div>
+</div>
+<div class="page">
+  <div class="headrow">
+    <div>
+      <h1>{% if waiting == 0 %}No runs are waiting for a person{% elif waiting == 1 %}One run is waiting for a person{% else %}{{ waiting }} runs are waiting for a person{% endif %}</h1>
+      <p class="lede">Each one has paused its browser session and is holding it open for you. Oldest at the top.</p>
+    </div>
+    <div class="legend">
+      <span><span class="dot amber"></span>waiting for a person</span>
+      <span><span class="dot blue"></span>a person is in control</span>
+      <span><span class="dot green"></span>automation</span>
+    </div>
+  </div>
+  <div class="table">
+    <div class="row head"><span></span><span>Run</span><span>Capability</span><span>Stopped at</span><span>Why</span><span>Waiting</span><span></span></div>
+    {% for row in rows %}
+    <div class="row">
+      <span class="dot {{ row.colour }}"></span>
+      <span class="mono">{{ row.run_id }}</span>
+      <span class="stack"><span style="font-weight: 500;">{{ row.capability or row.run_id }}</span><span class="sub mono">{{ row.capability_id }}{% if row.app %} · {{ row.app }}{% endif %}</span></span>
+      <span class="why">{{ row.stopped_at }}</span>
+      <span class="why">{{ row.why }}</span>
+      <span class="mono">{{ row.waiting_for }}</span>
+      <a class="open{% if loop.first and row.waiting %} primary{% endif %}" href="/operator/{{ row.run_id }}">Open</a>
+    </div>
+    {% else %}
+    <div class="row"><span></span><span class="muted" style="grid-column: 2 / -1;">Nothing has run yet.</span></div>
+    {% endfor %}
+  </div>
+  <p class="footnote">Nothing here can change a member's account without you. Opening a run shows you its browser exactly as the automation left it.</p>
+</div>
+{% endblock %}

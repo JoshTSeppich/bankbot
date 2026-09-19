@@ -160,7 +160,7 @@ class Replay:
             return self._failure(last, f"outputs {missing} extracted", "no extract step read them")
         return Success(
             outputs=dict(self._outputs),
-            evidence=self._evidence(),
+            evidence=self._evidence(trace_kept=self.keep_trace),
             recoveries_used=list(self._recoveries_used),
             warnings=list(self._warnings),
         )
@@ -244,7 +244,7 @@ class Replay:
                 return Outcome(
                     code=known.code,
                     message=known.message,
-                    evidence=self._evidence(),
+                    evidence=self._evidence(trace_kept=True),
                     recoveries_used=list(self._recoveries_used),
                     warnings=list(self._warnings),
                 )
@@ -353,14 +353,17 @@ class Replay:
             expected=expected,
             observed=observed,
             intervention=request,
-            evidence=self._evidence(),
+            evidence=self._evidence(trace_kept=True),
             recoveries_used=list(self._recoveries_used),
             warnings=list(self._warnings),
         )
 
-    def _evidence(self) -> Evidence:
+    def _evidence(self, trace_kept: bool) -> Evidence:
+        """Point at the run; the trace is named only when it will still be there afterwards."""
         return Evidence(
-            run_id=self.run_dir.run_id, screenshot=self._screenshot("final"), trace=TRACE_FILE
+            run_id=self.run_dir.run_id,
+            screenshot=self._screenshot("final"),
+            trace=TRACE_FILE if trace_kept else None,
         )
 
     def _screenshot(self, name: str) -> str:

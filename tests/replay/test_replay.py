@@ -60,6 +60,7 @@ def test_replay_success_returns_the_parsed_balance_and_a_complete_run_directory(
     assert result.evidence.screenshot is not None
     assert (run_dir.path / result.evidence.screenshot).exists()
     assert not run_dir.trace_path.exists(), "trace is deleted on success"
+    assert result.evidence.trace is None
     events = [event["event"] for event in read_events(run_dir)]
     assert events[0] == "run_started" and events[-1] == "run_finished"
     assert "checkpoint_passed" in events
@@ -80,6 +81,7 @@ def test_replay_reports_member_not_found_as_outcome_not_failure(
     assert isinstance(result, Outcome)
     assert result.code == "member_not_found"
     assert run_dir.trace_path.exists(), "trace is kept on an outcome"
+    assert result.evidence.trace == "trace.zip"
 
 
 def test_session_expiry_mid_run_is_recovered_and_the_run_still_succeeds(

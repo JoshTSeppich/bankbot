@@ -10,6 +10,7 @@ import httpx
 import pytest
 from playwright.sync_api import Browser, Page, sync_playwright
 
+from bankbot.policy import Policy, load_policy
 from bankbot.target import ServerHandle, create_app, start_server
 
 
@@ -41,3 +42,8 @@ def page(browser: Browser, base_url: str) -> Iterator[Page]:
     context = browser.new_context()
     yield context.new_page()
     context.close()
+
+
+@pytest.fixture
+def policy() -> Policy:
+    return load_policy()

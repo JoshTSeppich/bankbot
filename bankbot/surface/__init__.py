@@ -14,6 +14,7 @@ out of it: only the Pydantic models, ints, strings and bools in types.py.
 Governed by ADR-0006 (surface abstraction) and ADR-0002 (locator strategy).
 """
 
+from bankbot.surface.browser import headed_requested, open_page
 from bankbot.surface.playwright_surface import PlaywrightSurface, hash_aria
 from bankbot.surface.types import (
     ActionFailed,
@@ -39,4 +40,6 @@ __all__ = [
     "Surface",
     "TargetNotFound",
     "hash_aria",
+    "headed_requested",
+    "open_page",
 ]

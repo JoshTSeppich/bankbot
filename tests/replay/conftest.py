@@ -9,7 +9,7 @@ import pytest
 from playwright.sync_api import Page
 
 from bankbot.evidence import EvidenceWriter, RunDir, new_run_id
-from bankbot.policy import Policy, load_policy
+from bankbot.policy import Policy
 from bankbot.replay import Replay
 from bankbot.replay.escalation import Escalation
 from bankbot.schemas import Capability
@@ -17,11 +17,6 @@ from bankbot.surface import PlaywrightSurface
 
 FIXTURE = Path(__file__).parent.parent / "fixtures" / "lookup_savings_balance.json"
 TEST_SECRETS = {"BANKBOT_USERNAME": "teller", "BANKBOT_PASSWORD": "teller-demo-password"}
-
-
-@pytest.fixture
-def policy() -> Policy:
-    return load_policy()
 
 
 @pytest.fixture

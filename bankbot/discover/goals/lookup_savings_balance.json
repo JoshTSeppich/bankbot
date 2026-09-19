@@ -1,0 +1,46 @@
+{
+  "capability_id": "lookup_savings_balance",
+  "name": "Look up a member's savings balance",
+  "goal": "Look up the savings balance for the member and report the dollar amount.",
+  "app": {"vendor": "example-cu", "app_id": "legacy-core-teller", "variant": "default"},
+  "start_path": "/members/search",
+  "inputs": {
+    "member_id": {"type": "string", "pattern": "^M-[0-9]+$", "required": true, "example": "M-100"}
+  },
+  "outputs": {"savings_balance": "money"},
+  "outcomes": [
+    {
+      "code": "member_not_found",
+      "matches": {"description": "The search reported no match", "text_visible": "No member found"},
+      "message": "No member exists with that member id."
+    }
+  ],
+  "recoveries": [
+    {
+      "id": "session_expired",
+      "matches": {"description": "The app is showing the login page", "url_pattern": "/login"},
+      "steps": [
+        {
+          "id": "login_username",
+          "action": "type",
+          "target": {"candidates": [{"strategy": "role_name", "value": "textbox:Username", "confidence": 0.95, "reasoning": "Accessible name on the login form."}]},
+          "value": {"secret": "BANKBOT_USERNAME"}
+        },
+        {
+          "id": "login_password",
+          "action": "type",
+          "target": {"candidates": [{"strategy": "role_name", "value": "textbox:Password", "confidence": 0.95, "reasoning": "Accessible name on the login form."}]},
+          "value": {"secret": "BANKBOT_PASSWORD"}
+        },
+        {
+          "id": "login_submit",
+          "action": "click",
+          "target": {"candidates": [{"strategy": "role_name", "value": "button:Sign in", "confidence": 0.95, "reasoning": "The only submit button on the login form."}]},
+          "wait_for": {"description": "The signed-in banner is back", "text_visible": "Signed in as"}
+        }
+      ],
+      "resume_from_step": null,
+      "max_attempts": 3
+    }
+  ]
+}

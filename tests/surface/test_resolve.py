@@ -79,3 +79,11 @@ def test_bbox_candidate_is_a_last_resort_that_only_needs_to_fit_the_viewport(
         "bbox '5000,5000,10,10': outside the viewport",
         "bbox 'not-a-box': malformed: expected x,y,w,h",
     ]
+
+
+def test_reading_a_target_that_only_a_bounding_box_resolves_is_target_not_found(
+    surface: PlaywrightSurface, page: Page, base_url: str
+) -> None:
+    page.goto(f"{base_url}/login")
+    with pytest.raises(TargetNotFound, match="a point has no text to read"):
+        surface.read(target(bbox("10,10,50,20")), timeout_ms=500)

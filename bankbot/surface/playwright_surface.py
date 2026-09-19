@@ -145,7 +145,12 @@ class PlaywrightSurface:
         """Resolve, then take the element's visible text as the page shows it."""
         resolved = resolve_target(self._page, target, timeout_ms)
         if resolved.locator is None:
-            raise ValueError("a bbox candidate has no element to read")
+            # A point can be clicked but not read: there is no element behind it to take
+            # text from. Reported the way any unresolved target is, not as a crash.
+            box = target.candidates[resolved.index].value
+            raise TargetNotFound(
+                tried=[f"bbox {box!r}: a point has no text to read"], observed=self._page.url
+            )
         try:
             text = resolved.locator.inner_text(timeout=timeout_ms).strip()
             element = element_facts(resolved.locator, target.frame_path)

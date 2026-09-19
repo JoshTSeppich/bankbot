@@ -97,6 +97,9 @@ def test_extract_target_is_anchored_on_the_row_header_never_on_the_amount(
     extract = capability.outputs["savings_balance"].extract
     assert extract.candidates[0].value == 'th:text-is("Savings balance") + td'
     assert "$4,242.00" not in [candidate.value for candidate in extract.candidates]
+    assert LocatorStrategy.BBOX not in [c.strategy for c in extract.candidates], (
+        "a point has no text"
+    )
     assert capability.outputs["savings_balance"].type == "money"
 
 

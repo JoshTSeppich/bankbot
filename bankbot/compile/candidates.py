@@ -113,13 +113,15 @@ def target_from_facts(
                 reasoning="The record's own name; finds the recorded record and no other.",
             )
         )
-    x, y, width, height = facts.bbox
-    candidates.append(
-        Candidate(
-            strategy=LocatorStrategy.BBOX,
-            value=f"{x:.0f},{y:.0f},{width:.0f},{height:.0f}",
-            confidence=BBOX_CONFIDENCE,
-            reasoning="Screen position at recording time; a last resort.",
+    if not for_output:
+        # A point can be clicked as a last resort; it cannot be read, so an output gets none.
+        x, y, width, height = facts.bbox
+        candidates.append(
+            Candidate(
+                strategy=LocatorStrategy.BBOX,
+                value=f"{x:.0f},{y:.0f},{width:.0f},{height:.0f}",
+                confidence=BBOX_CONFIDENCE,
+                reasoning="Screen position at recording time; a last resort.",
+            )
         )
-    )
     return TargetRef(candidates=candidates, frame_path=list(facts.frame_path))

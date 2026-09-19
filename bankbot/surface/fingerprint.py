@@ -16,6 +16,11 @@ name or a balance differs. A distance says how different, in units a
 person can read: a renamed button is 0, an extra column is 1, a different
 page is most of the sequence.
 
+Controls inside a dialog or alertdialog are not part of the sequence. A
+modal overlay is state the page is in, not the shape of the page, and a
+screen measured while an unknown notice covered it must still be the
+same screen.
+
 Does not own: deciding what distance is too much (policy.yaml) or when to
 compare (replay/).
 
@@ -83,9 +88,12 @@ TAB_ORDER_JS = """
     return rect.width > 0 && rect.height > 0 && getComputedStyle(el).visibility !== "hidden";
   };
 
+  // A modal dialog is runtime state laid over the screen, not the screen's shape: its
+  // buttons are left out so an injected notice does not read as a different build.
+  const inDialog = (el) => el.closest('[role="dialog"], [role="alertdialog"]') !== null;
   const focusable = Array.from(
     document.querySelectorAll("a[href], button, input, select, textarea, [tabindex]")
-  ).filter((el) => !el.disabled && el.tabIndex >= 0
+  ).filter((el) => !el.disabled && el.tabIndex >= 0 && !inDialog(el)
                    && (el.getAttribute("type") || "").toLowerCase() !== "hidden" && visible(el));
   const positive = focusable.filter((el) => el.tabIndex > 0)
                             .sort((a, b) => a.tabIndex - b.tabIndex);

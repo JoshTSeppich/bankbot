@@ -1,3 +1,4 @@
+import httpx
 from playwright.sync_api import Page
 
 from bankbot.policy import Policy
@@ -64,3 +65,15 @@ def test_a_control_state_changes_the_sequence_not_its_length() -> None:
     plain = [ScreenElement(role="checkbox", state=0, landmark="main")]
     checked = [ScreenElement(role="checkbox", state=1 << 3, landmark="main")]
     assert distance(plain, checked) == 1
+
+
+def test_an_injected_dialog_does_not_change_the_screens_shape(page: Page, base_url: str) -> None:
+    signed_in(page, base_url)
+    clear = screen_fingerprint(page)
+    # The next counted page carries the unknown dialog over the search form.
+    httpx.post(f"{base_url}/admin/faults", json={"unknown_dialog_at_step": 1}).raise_for_status()
+    page.goto(f"{base_url}/members/search")
+    assert page.locator("[role=dialog]").count() == 1, "the dialog is on screen"
+    covered = screen_fingerprint(page)
+    assert distance(clear, covered) == 0
+    assert [element.role for element in covered] == ["textbox", "button"]

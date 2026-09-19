@@ -194,19 +194,24 @@ class RunController:
     # --- private ---------------------------------------------------------
 
     def _wait_for_decision(self) -> InterventionDecision:
-        last_screenshot = 0.0
+        # The picture comes before the answer check, so the operator page always
+        # has the page as the engine left it, even if a person answers at once.
+        last_screenshot: float | None = None
         while True:
+            if (
+                last_screenshot is None
+                or time.monotonic() - last_screenshot >= LIVE_SCREENSHOT_EVERY_S
+            ):
+                self._surface.observe(
+                    screenshot_to=self.run_dir.screenshot_path(LIVE_SCREENSHOT_NAME)
+                )
+                last_screenshot = time.monotonic()
             state, decision = self._snapshot()
             if decision is not None:
                 return decision
             if state is ControlState.HUMAN and self._lease_expired():
                 self.abort(OPERATOR_LOST)
                 continue
-            if time.monotonic() - last_screenshot >= LIVE_SCREENSHOT_EVERY_S:
-                self._surface.observe(
-                    screenshot_to=self.run_dir.screenshot_path(LIVE_SCREENSHOT_NAME)
-                )
-                last_screenshot = time.monotonic()
             self._pump(IDLE_MS)
 
     def _lease_expired(self) -> bool:

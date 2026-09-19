@@ -10,8 +10,9 @@ Does not own: any behaviour, and nothing about what an artifact means.
 Governed by ADR-0006 (surface abstraction) and ADR-0002 (locator strategy).
 """
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol
+from typing import Literal, Protocol
 
 from bankbot.schemas.artifact import (
     ActionType,
@@ -89,6 +90,15 @@ class ReadResult(StrictModel):
     candidate_index: int
     text: str
     element: ElementFacts | None = None
+
+
+class HumanAction(StrictModel):
+    """One thing a person did while in control: what kind, on what, where. Never what they typed."""
+
+    kind: Literal["click", "input", "navigate"]
+    description: str
+    frame_path: list[str]
+    url: str
 
 
 class TargetNotFound(Exception):
@@ -185,4 +195,21 @@ class Surface(Protocol):
 
     def stop_trace(self, path: Path) -> None:
         """Write the trace to disk at the path the evidence module chose."""
+        ...
+
+    def idle(self, ms: int) -> None:
+        """Let the browser talk for a while; the engine calls this instead of sleeping.
+
+        The sync client only hears about navigations and human actions while
+        it is inside a Playwright call, so a paused engine that slept would
+        record nothing.
+        """
+        ...
+
+    def watch_human(self, on_action: Callable[[HumanAction], None]) -> None:
+        """Start reporting what a person does in the live page, values masked."""
+        ...
+
+    def unwatch_human(self) -> None:
+        """Stop reporting; from here on the engine is acting again."""
         ...

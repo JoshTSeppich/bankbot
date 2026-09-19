@@ -23,6 +23,7 @@ from playwright.sync_api import Locator, Page
 from bankbot.schemas.artifact import ActionType, AppFingerprint, StateAssertion, TargetRef
 from bankbot.surface.facts import element_facts
 from bankbot.surface.frames import walk_frames
+from bankbot.surface.human import HumanWatcher, OnHumanAction
 from bankbot.surface.locators import bbox_centre, first_line, resolve_target
 from bankbot.surface.types import (
     ActionFailed,
@@ -56,6 +57,7 @@ class PlaywrightSurface:
 
     def __init__(self, page: Page, mask_selectors: Sequence[str]) -> None:
         self._page = page
+        self._human = HumanWatcher(page)
         self._mask_style = (
             ", ".join(mask_selectors) + " { filter: blur(8px) !important; }"
             if mask_selectors
@@ -174,6 +176,18 @@ class PlaywrightSurface:
     def stop_trace(self, path: Path) -> None:
         """Write trace.zip where the run directory says."""
         self._page.context.tracing.stop(path=str(path))
+
+    def idle(self, ms: int) -> None:
+        """Wait inside Playwright so events keep flowing; see Surface.idle for why not sleep."""
+        self._page.wait_for_timeout(ms)
+
+    def watch_human(self, on_action: OnHumanAction) -> None:
+        """Hand the page to a person and keep the record going."""
+        self._human.start(on_action)
+
+    def unwatch_human(self) -> None:
+        """The person handed back; stop attributing events to them."""
+        self._human.stop()
 
     # --- private ------------------------------------------------------------
 

@@ -1,7 +1,8 @@
 """Evidence: everything a run leaves on disk, and the one door it leaves through.
 
 Owns: the run directory layout (RunDir), run ids, and the EvidenceWriter that
-appends the JSONL log and writes result/transcript/capability JSON. The
+appends the JSONL log and writes result/transcript/capability JSON, the
+closed list of event names, and the hash of a run's event sequence. The
 writer is the redaction boundary: nothing reaches disk through it without
 passing the Redactor first, because these directories are committed to the
 repo as evidence.
@@ -15,15 +16,18 @@ Governed by ADR-0005 (policy model: the redaction boundary lives here) and
 ADR-0003 (error taxonomy: results are persisted as the schema defines them).
 """
 
+from bankbot.evidence.events import Event, event_sequence_hash
 from bankbot.evidence.run_dir import RunDir, RunDirectoryExists, RunDirectoryMissing, new_run_id
 from bankbot.evidence.writer import EvidenceWriter, Redacting, read_events
 
 __all__ = [
+    "Event",
     "EvidenceWriter",
     "Redacting",
     "RunDir",
     "RunDirectoryExists",
     "RunDirectoryMissing",
+    "event_sequence_hash",
     "new_run_id",
     "read_events",
 ]

@@ -33,7 +33,7 @@ from bankbot.discover.model import (
 from bankbot.discover.spec import GoalSpec
 from bankbot.discover.tools import ProposedAction, ToolAction, system_prompt
 from bankbot.discover.transcript import StepStatus, StopReason, Transcript, TranscriptStep
-from bankbot.evidence import EvidenceWriter, RunDir, read_events
+from bankbot.evidence import Event, EvidenceWriter, RunDir, read_events
 from bankbot.policy import Decision, Policy
 from bankbot.replay import StepRunner, Unattended
 from bankbot.replay.escalation import Escalation
@@ -135,7 +135,7 @@ class Discovery:
         check_secrets(recovery_steps, self.secrets)
         started_at = datetime.now(UTC)
         self.writer.event(
-            "discovery_started",
+            Event.DISCOVERY_STARTED,
             goal=self.spec.goal,
             params=sorted(self.params),
             model=self.decider.model,
@@ -165,7 +165,7 @@ class Discovery:
         self.writer.save_model("transcript", transcript)
         self.writer.keep_trace(True)
         self.writer.event(
-            "discovery_finished",
+            Event.DISCOVERY_FINISHED,
             stop_reason=stop_reason.value,
             steps=len(self._steps),
             input_tokens=self._input_tokens,
@@ -354,7 +354,7 @@ class Discovery:
             )
         )
         self.writer.event(
-            "discovery_step",
+            Event.DISCOVERY_STEP,
             index=index,
             action=decided.action.action.value,
             role=decided.action.role,
@@ -408,9 +408,13 @@ class Discovery:
             log_tail=self._log_tail(),
             param_names=sorted(self.params),
         )
-        self.writer.event("intervention_requested", step_id=request.step_id, reason=reason.value)
+        self.writer.event(
+            Event.INTERVENTION_REQUESTED, step_id=request.step_id, reason=reason.value
+        )
         decision = self.escalation.request(request)
-        self.writer.event("intervention_answered", step_id=request.step_id, decision=decision.value)
+        self.writer.event(
+            Event.INTERVENTION_ANSWERED, step_id=request.step_id, decision=decision.value
+        )
         if decision is InterventionDecision.ABORT:
             return StopReason.INTERVENTION_ABORTED
         self._consecutive_blocks = 0

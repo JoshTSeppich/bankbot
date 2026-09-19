@@ -23,10 +23,9 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from bankbot.evidence.events import TIMESTAMP_FIELD, Event
 from bankbot.evidence.run_dir import RunDir
 from bankbot.schemas.result import REPLAY_RESULT_ADAPTER, ReplayResult
-
-TRACE_EVENT = "trace"
 
 
 class Redacting(Protocol):
@@ -52,14 +51,16 @@ class EvidenceWriter:
         self._run = run_dir
         self._redactor = redactor
 
-    def event(self, event: str, **fields: object) -> None:
+    def event(self, event: Event, **fields: object) -> None:
         """Append one JSON line. The file is opened and closed per event.
 
         Per-event open costs a syscall and buys two things: a crash
         mid-run loses nothing already logged, and there is no handle for a
-        caller to forget to close.
+        caller to forget to close. The timestamp is ISO-8601 with
+        separators, which is also why the digit-run redaction leaves it
+        alone: a compact YYYYMMDDHHMMSS would look like an account number.
         """
-        record = {"ts": datetime.now(UTC).isoformat(), "event": event, **fields}
+        record = {TIMESTAMP_FIELD: datetime.now(UTC).isoformat(), "event": event.value, **fields}
         line = self._render(record, indent=None)
         with self._run.log_path.open("a", encoding="utf-8") as log:
             log.write(line + "\n")
@@ -83,7 +84,7 @@ class EvidenceWriter:
         existed = self._run.trace_path.exists()
         if not keep and existed:
             self._run.trace_path.unlink()
-        self.event(TRACE_EVENT, file=self._run.trace_path.name, kept=keep, existed=existed)
+        self.event(Event.TRACE, file=self._run.trace_path.name, kept=keep, existed=existed)
 
     def _write_json(self, path: Path, payload: object) -> None:
         path.write_text(self._render(payload, indent=2) + "\n", encoding="utf-8")

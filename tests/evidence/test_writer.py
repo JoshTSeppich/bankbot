@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from bankbot.evidence import EvidenceWriter, Redacting, RunDir, read_events
+from bankbot.evidence import Event, EvidenceWriter, Redacting, RunDir, read_events
 from bankbot.schemas import Evidence, Failure
 from bankbot.schemas.artifact import StrictModel
 
@@ -51,7 +51,7 @@ def secret_on_disk(run: RunDir) -> bool:
 def test_a_secret_passed_in_an_event_field_never_reaches_disk(
     run: RunDir, writer: EvidenceWriter
 ) -> None:
-    writer.event("typed", value=SECRET)
+    writer.event(Event.STEP_STARTED, value=SECRET)
     assert not secret_on_disk(run)
     assert read_events(run)[0]["value"] == "[REDACTED]"
 
@@ -59,7 +59,7 @@ def test_a_secret_passed_in_an_event_field_never_reaches_disk(
 def test_a_secret_nested_inside_a_list_inside_a_dict_never_reaches_disk(
     run: RunDir, writer: EvidenceWriter
 ) -> None:
-    writer.event("observed", detail={"frames": [{"aria": f"textbox: {SECRET}"}]})
+    writer.event(Event.DISCOVERY_STEP, detail={"frames": [{"aria": f"textbox: {SECRET}"}]})
     assert not secret_on_disk(run)
 
 
@@ -68,7 +68,7 @@ def test_a_secret_inside_a_non_string_field_is_caught_by_the_text_pass(
 ) -> None:
     # A Path is not a str, so the structural pass leaves it alone; it only
     # becomes text during serialisation. The second pass is for this case.
-    writer.event("screenshot", path=Path("screenshots") / f"{SECRET}.png")
+    writer.event(Event.STEP_DONE, path=Path("screenshots") / f"{SECRET}.png")
     assert not secret_on_disk(run)
 
 
@@ -98,8 +98,8 @@ def test_a_secret_inside_a_saved_model_never_reaches_disk(
 def test_each_event_is_one_json_line_with_timestamp_and_event_name(
     run: RunDir, writer: EvidenceWriter
 ) -> None:
-    writer.event("step_started", step_id="s1")
-    writer.event("step_finished", step_id="s1", detail={"multi": "line\nvalue"})
+    writer.event(Event.STEP_STARTED, step_id="s1")
+    writer.event(Event.STEP_DONE, step_id="s1", detail={"multi": "line\nvalue"})
 
     lines = run.log_path.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 2
@@ -112,7 +112,7 @@ def test_each_event_is_one_json_line_with_timestamp_and_event_name(
 def test_events_are_flushed_immediately_so_a_crash_keeps_the_log(
     run: RunDir, writer: EvidenceWriter
 ) -> None:
-    writer.event("step_started", step_id="s1")
+    writer.event(Event.STEP_STARTED, step_id="s1")
     # No close, no flush, no del: the line must already be on disk.
     assert run.log_path.read_text(encoding="utf-8").count("\n") == 1
 
@@ -140,7 +140,7 @@ def test_keep_trace_true_leaves_the_trace_and_records_it(
 
 def test_read_events_returns_what_was_written_in_order(run: RunDir, writer: EvidenceWriter) -> None:
     for index in range(5):
-        writer.event("tick", n=index)
+        writer.event(Event.STEP_DONE, n=index)
     assert [event["n"] for event in read_events(run)] == [0, 1, 2, 3, 4]
 
 

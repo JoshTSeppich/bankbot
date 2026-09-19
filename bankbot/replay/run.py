@@ -19,7 +19,7 @@ import os
 from collections.abc import Mapping
 from urllib.parse import urlparse
 
-from bankbot.evidence import EvidenceWriter, RunDir, read_events
+from bankbot.evidence import Event, EvidenceWriter, RunDir, read_events
 from bankbot.policy import Policy
 from bankbot.replay.escalation import Escalation, Unattended
 from bankbot.replay.steps import STEP_TIMEOUT_MS, PolicyBlocked, StepFailed, StepRunner
@@ -111,7 +111,7 @@ class Replay:
         ]
         check_secrets(self.capability.steps + recovery_steps, self.secrets)
         self.writer.event(
-            "run_started",
+            Event.RUN_STARTED,
             capability=self.capability.id,
             version=self.capability.version,
             params=sorted(self.params),
@@ -124,7 +124,7 @@ class Replay:
             self.surface.stop_trace(self.run_dir.trace_path)
         self.writer.save_result(result)
         self.writer.keep_trace(self.keep_trace or not isinstance(result, Success))
-        self.writer.event("run_finished", kind=result.kind)
+        self.writer.event(Event.RUN_FINISHED, kind=result.kind)
         return result
 
     def _execute(self) -> ReplayResult:
@@ -154,7 +154,7 @@ class Replay:
                 return self._failure(last, failed.expected, failed.observed, request)
             if not self.surface.holds(checkpoint, self.step_timeout_ms):
                 return self._failure(last, failed.expected, self.steps.observed(), request)
-        self.writer.event("checkpoint_passed", description=checkpoint.description)
+        self.writer.event(Event.CHECKPOINT_PASSED, description=checkpoint.description)
         missing = sorted(set(self.capability.outputs) - set(self._outputs))
         if missing:
             return self._failure(last, f"outputs {missing} extracted", "no extract step read them")
@@ -194,7 +194,7 @@ class Replay:
 
             if retries_left > 0:
                 retries_left -= 1
-                self.writer.event("retry", step_id=step.id, remaining=retries_left)
+                self.writer.event(Event.RETRY, step_id=step.id, remaining=retries_left)
                 continue
 
             resolution = self._ask_human(step, index, failure)
@@ -207,7 +207,10 @@ class Replay:
             attempted = self.steps.attempt(step)
         except StepFailed as failed:
             self.writer.event(
-                "step_failed", step_id=step.id, expected=failed.expected, observed=failed.observed
+                Event.STEP_FAILED,
+                step_id=step.id,
+                expected=failed.expected,
+                observed=failed.observed,
             )
             return failed
         if attempted.output_name is not None and attempted.output_value is not None:
@@ -240,7 +243,7 @@ class Replay:
     def _matching_outcome(self) -> Outcome | None:
         for known in self.capability.outcomes:
             if self.surface.holds(known.matches, MATCH_TIMEOUT_MS):
-                self.writer.event("outcome_matched", code=known.code)
+                self.writer.event(Event.OUTCOME_MATCHED, code=known.code)
                 return Outcome(
                     code=known.code,
                     message=known.message,
@@ -293,14 +296,14 @@ class Replay:
             param_names=sorted(self.params),
         )
         self.writer.event(
-            "intervention_requested",
+            Event.INTERVENTION_REQUESTED,
             step_id=step.id,
             reason=failure.reason.value,
             expected=failure.expected,
             observed=failure.observed,
         )
         decision = self.escalation.request(request)
-        self.writer.event("intervention_answered", step_id=step.id, decision=decision.value)
+        self.writer.event(Event.INTERVENTION_ANSWERED, step_id=step.id, decision=decision.value)
         return decision, request
 
     # --- signals that do not stop the run --------------------------------
@@ -341,7 +344,7 @@ class Replay:
 
     def _warn(self, code: WarningCode, step_id: str | None, detail: str) -> None:
         self._warnings.append(ReplayWarning(code=code, step_id=step_id, detail=detail))
-        self.writer.event("warning", code=code.value, step_id=step_id, detail=detail)
+        self.writer.event(Event.WARNING, code=code.value, step_id=step_id, detail=detail)
 
     # --- small helpers ---------------------------------------------------
 

@@ -29,7 +29,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from bankbot.evidence import EvidenceWriter, RunDir
+from bankbot.evidence import Event, EvidenceWriter, RunDir
 from bankbot.schemas import Capability, InterventionDecision, InterventionRequest
 from bankbot.surface import HumanAction, Surface
 
@@ -129,7 +129,7 @@ class RunController:
             self._decision = None
             self._requested_at = time.monotonic()
             self.request_pending = request
-        self._writer.event("control", state=ControlState.INTERVENTION_REQUESTED.value)
+        self._writer.event(Event.CONTROL, state=ControlState.INTERVENTION_REQUESTED.value)
         self._surface.watch_human(self._record_human_action)
         try:
             decision = self._wait_for_decision()
@@ -141,7 +141,7 @@ class RunController:
             self.request_pending = None
             self._requested_at = None
             final = self._state
-        self._writer.event("control", state=final.value, decision=decision.value)
+        self._writer.event(Event.CONTROL, state=final.value, decision=decision.value)
         return decision
 
     def finish(self, result_kind: str) -> None:
@@ -159,7 +159,7 @@ class RunController:
             self._check(ControlState.INTERVENTION_REQUESTED, ControlState.HUMAN)
             self._state = ControlState.HUMAN
             self._last_heartbeat = time.monotonic()
-        self._writer.event("control", state=ControlState.HUMAN.value)
+        self._writer.event(Event.CONTROL, state=ControlState.HUMAN.value)
 
     def heartbeat(self) -> None:
         """The person's page is still open. Ignored outside HUMAN: a stale ping is not an error."""
@@ -189,7 +189,7 @@ class RunController:
             self._state = ControlState.ABORTED
             self._decision = InterventionDecision.ABORT
             self.abort_reason = reason
-        self._writer.event("control", state=ControlState.ABORTED.value, reason=reason)
+        self._writer.event(Event.CONTROL, state=ControlState.ABORTED.value, reason=reason)
 
     # --- private ---------------------------------------------------------
 
@@ -239,7 +239,7 @@ class RunController:
     def _record_human_action(self, action: HumanAction) -> None:
         self.human_actions.append(action)
         self._writer.event(
-            "human_action",
+            Event.HUMAN_ACTION,
             kind=action.kind,
             description=action.description,
             frame_path=action.frame_path,

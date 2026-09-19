@@ -15,7 +15,7 @@ replay's enforcement point).
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from bankbot.evidence import EvidenceWriter
+from bankbot.evidence import Event, EvidenceWriter
 from bankbot.policy import Policy
 from bankbot.replay.values import OutputUnreadable, describe_value, parse_output, value_for
 from bankbot.schemas import (
@@ -91,7 +91,10 @@ class StepRunner:
     def attempt(self, step: Step) -> Attempted:
         """Do the step once. Raises StepFailed with the reason a human would be given."""
         self.writer.event(
-            "step_started", step_id=step.id, action=step.action.value, value=describe_value(step)
+            Event.STEP_STARTED,
+            step_id=step.id,
+            action=step.action.value,
+            value=describe_value(step),
         )
         attempted = Attempted()
         if step.action in (
@@ -113,33 +116,33 @@ class StepRunner:
             raise StepFailed(step.wait_for.description, self.observed(), self.reason_now())
         if attempted.candidate_index is not None:
             self.writer.event(
-                "target_resolved", step_id=step.id, candidate_index=attempted.candidate_index
+                Event.TARGET_RESOLVED, step_id=step.id, candidate_index=attempted.candidate_index
             )
-        self.writer.event("step_done", step_id=step.id)
+        self.writer.event(Event.STEP_DONE, step_id=step.id)
         return attempted
 
     def run_recovery(self, recovery: Recovery) -> StepFailed | None:
         """Run a recovery's steps once; the first failure is returned, not retried."""
-        self.writer.event("recovery_started", recovery=recovery.id)
+        self.writer.event(Event.RECOVERY_STARTED, recovery=recovery.id)
         for step in recovery.steps:
             try:
                 self.attempt(step)
             except StepFailed as failed:
                 self.writer.event(
-                    "step_failed",
+                    Event.STEP_FAILED,
                     step_id=step.id,
                     expected=failed.expected,
                     observed=failed.observed,
                 )
                 return failed
-        self.writer.event("recovery_finished", recovery=recovery.id)
+        self.writer.event(Event.RECOVERY_FINISHED, recovery=recovery.id)
         return None
 
     def _act(self, step: Step) -> Attempted:
         control = control_name(step.target)
         decision = self.policy.check(self.url(), step.action, control)
         if not decision.allowed:
-            self.writer.event("policy_blocked", step_id=step.id, reason=decision.reason)
+            self.writer.event(Event.POLICY_BLOCKED, step_id=step.id, reason=decision.reason)
             raise PolicyBlocked(f"blocked: {decision.reason}")
         approved = self.approval is Approval.APPROVED or step.id in self.approved_steps
         if decision.risky and not approved:
@@ -192,7 +195,7 @@ class StepRunner:
             raise StepFailed(
                 f"output {name!r} as {spec.type}", read.text, InterventionReason.CHECKPOINT_UNMET
             ) from unreadable
-        self.writer.event("output_extracted", output=name, value=value)
+        self.writer.event(Event.OUTPUT_EXTRACTED, output=name, value=value)
         return Attempted(candidate_index=read.candidate_index, output_name=name, output_value=value)
 
     # --- what the page looks like right now, in words ----------------------

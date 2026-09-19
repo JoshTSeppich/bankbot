@@ -1,0 +1,14 @@
+{
+  "evidence": {
+    "run_id": "03-replay-member-not-found",
+    "screenshot": "screenshots/final.png",
+    "trace": "trace.zip"
+  },
+  "recoveries_used": [
+    "session_expired"
+  ],
+  "warnings": [],
+  "kind": "outcome",
+  "code": "member_not_found",
+  "message": "No member exists with that member id."
+}

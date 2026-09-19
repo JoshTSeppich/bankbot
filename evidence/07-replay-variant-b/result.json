@@ -1,0 +1,30 @@
+{
+  "evidence": {
+    "run_id": "07-replay-variant-b",
+    "screenshot": "screenshots/final.png",
+    "trace": "trace.zip"
+  },
+  "recoveries_used": [
+    "session_expired"
+  ],
+  "warnings": [
+    {
+      "code": "variant_mismatch",
+      "step_id": null,
+      "detail": "version '7.3.0' != '7.2.1'",
+      "distance": null,
+      "length": null
+    },
+    {
+      "code": "drift_warning",
+      "step_id": "click_search",
+      "detail": "candidate 1 resolved; earlier candidates did not",
+      "distance": null,
+      "length": null
+    }
+  ],
+  "kind": "success",
+  "outputs": {
+    "savings_balance": "4242.00"
+  }
+}

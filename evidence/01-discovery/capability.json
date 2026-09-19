@@ -9,8 +9,19 @@
     "fingerprint": {
       "title": "Legacy Core Teller",
       "version": "7.2.1",
-      "screen_hashes": {
-        "/members/search": "sha256:7a6185e87916b5f6730d326621f4be54f82c66f41c1cf62f8ceb87e551a6fb97"
+      "screen_fingerprints": {
+        "/members/search": [
+          {
+            "role": "textbox",
+            "state": 0,
+            "landmark": "none"
+          },
+          {
+            "role": "button",
+            "state": 0,
+            "landmark": "none"
+          }
+        ]
       }
     }
   },
@@ -21,16 +32,16 @@
       "anthropic": "1.7.0",
       "playwright": "1.56.0"
     },
-    "started_at": "2026-09-19T16:51:21.739565Z",
-    "finished_at": "2026-09-19T16:51:42.084122Z",
+    "started_at": "2026-09-19T21:04:26.595075Z",
+    "finished_at": "2026-09-19T21:04:45.961983Z",
     "request_ids": [
-      "req_011CfD9JJH8q5fQpdfsF5bU8",
-      "req_011CfD9JYg59cWtVfCdi34pf",
-      "req_011CfD9Jm1yPNtsoFQDgWVVA",
-      "req_011CfD9JwTmohu1PHzh4Hnak",
-      "req_011CfD9K9S6uPu4hnWJr9X7m",
-      "req_011CfD9KLuRdZmnmWVu2kVtz",
-      "req_011CfD9Ka6RfZKEGD6rRG2JG"
+      "req_011CfDUbe8Rb2X2t1WujfAwX",
+      "req_011CfDUbuCY7afC4jyELDHSc",
+      "req_011CfDUc7vWFLGgKjcTRAZgC",
+      "req_011CfDUcHhsWEeQLV2PQWSm6",
+      "req_011CfDUcUTn3RGrCPYYkbEWR",
+      "req_011CfDUcf5zeHRqQEVfH6kNb",
+      "req_011CfDUcs6Ju1ssrWMbvPXb7"
     ]
   },
   "inputs": {
@@ -69,7 +80,14 @@
       }
     }
   },
-  "preconditions": [],
+  "preconditions": [
+    {
+      "description": "The teller is signed in",
+      "url_pattern": null,
+      "text_visible": "Signed in as",
+      "target_visible": null
+    }
+  ],
   "steps": [
     {
       "id": "open_start",
@@ -85,8 +103,7 @@
         "target_visible": null
       },
       "on_fail": {
-        "kind": "recover",
-        "recovery_id": "session_expired"
+        "kind": "fail"
       }
     },
     {
@@ -140,7 +157,7 @@
             "strategy": "role_name",
             "value": "button:Search",
             "confidence": 0.95,
-            "reasoning": "Click Search to look up the member's details."
+            "reasoning": "Click Search to look up the member with the entered ID."
           },
           {
             "strategy": "css_structural",
@@ -168,7 +185,7 @@
       },
       "on_fail": {
         "kind": "retry",
-        "attempts": 2
+        "retries": 2
       }
     },
     {
@@ -177,16 +194,16 @@
       "target": {
         "candidates": [
           {
-            "strategy": "role_name",
-            "value": "link:Dana Whitfield",
-            "confidence": 0.95,
-            "reasoning": "Click the member's name link to open their details page which should show the savings balance."
-          },
-          {
             "strategy": "css_structural",
             "value": "body > table > tbody > tr:nth-of-type(2) > td > table > tbody > tr > td:nth-of-type(2) > a",
-            "confidence": 0.4,
-            "reasoning": "Structural path from the document root; breaks when the layout changes."
+            "confidence": 0.7,
+            "reasoning": "Click the member's name link to open their profile where the savings balance is shown. The name is page data; the position is what carries over."
+          },
+          {
+            "strategy": "role_name",
+            "value": "link:Dana Whitfield",
+            "confidence": 0.2,
+            "reasoning": "The record's own name; finds the recorded record and no other."
           },
           {
             "strategy": "bbox",
@@ -206,7 +223,7 @@
       },
       "on_fail": {
         "kind": "retry",
-        "attempts": 2
+        "retries": 2
       }
     },
     {
@@ -223,7 +240,7 @@
     }
   ],
   "checkpoint": {
-    "description": "Member [REDACTED] detail page shows Savings balance $4,242.00",
+    "description": "Member [REDACTED] profile shows Savings balance $4,242.00.",
     "url_pattern": null,
     "text_visible": "Savings balance",
     "target_visible": null

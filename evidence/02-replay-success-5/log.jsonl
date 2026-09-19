@@ -1,0 +1,31 @@
+{"ts": "2026-09-19T21:05:04.328018+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1:49232"}
+{"ts": "2026-09-19T21:05:05.445521+00:00", "event": "recovery_started", "recovery": "session_expired"}
+{"ts": "2026-09-19T21:05:05.446429+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
+{"ts": "2026-09-19T21:05:05.540670+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:05.540887+00:00", "event": "step_done", "step_id": "login_username"}
+{"ts": "2026-09-19T21:05:05.541018+00:00", "event": "step_started", "step_id": "login_password", "action": "type", "value": "secret:BANKBOT_PASSWORD"}
+{"ts": "2026-09-19T21:05:05.602802+00:00", "event": "target_resolved", "step_id": "login_password", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:05.602989+00:00", "event": "step_done", "step_id": "login_password"}
+{"ts": "2026-09-19T21:05:05.603070+00:00", "event": "step_started", "step_id": "login_submit", "action": "click", "value": ""}
+{"ts": "2026-09-19T21:05:05.717128+00:00", "event": "target_resolved", "step_id": "login_submit", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:05.717303+00:00", "event": "step_done", "step_id": "login_submit"}
+{"ts": "2026-09-19T21:05:05.717378+00:00", "event": "recovery_finished", "recovery": "session_expired"}
+{"ts": "2026-09-19T21:05:05.721215+00:00", "event": "step_started", "step_id": "open_start", "action": "navigate", "value": "/members/search"}
+{"ts": "2026-09-19T21:05:05.737489+00:00", "event": "step_done", "step_id": "open_start"}
+{"ts": "2026-09-19T21:05:05.777721+00:00", "event": "screen_compared", "screen": "/members/search", "distance": 0, "length": 2}
+{"ts": "2026-09-19T21:05:06.217686+00:00", "event": "step_started", "step_id": "type_member_id", "action": "type", "value": "param:member_id"}
+{"ts": "2026-09-19T21:05:06.455563+00:00", "event": "target_resolved", "step_id": "type_member_id", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:06.458967+00:00", "event": "step_done", "step_id": "type_member_id"}
+{"ts": "2026-09-19T21:05:06.860867+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-19T21:05:06.949767+00:00", "event": "target_resolved", "step_id": "click_search", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:06.950080+00:00", "event": "step_done", "step_id": "click_search"}
+{"ts": "2026-09-19T21:05:07.298474+00:00", "event": "step_started", "step_id": "click_dana_whitfield", "action": "click", "value": ""}
+{"ts": "2026-09-19T21:05:07.381717+00:00", "event": "target_resolved", "step_id": "click_dana_whitfield", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:07.382014+00:00", "event": "step_done", "step_id": "click_dana_whitfield"}
+{"ts": "2026-09-19T21:05:07.731824+00:00", "event": "step_started", "step_id": "read_savings_balance", "action": "extract", "value": "output:savings_balance"}
+{"ts": "2026-09-19T21:05:07.754587+00:00", "event": "output_extracted", "output": "savings_balance", "value": "4242.00"}
+{"ts": "2026-09-19T21:05:07.754738+00:00", "event": "target_resolved", "step_id": "read_savings_balance", "candidate_index": 0}
+{"ts": "2026-09-19T21:05:07.754831+00:00", "event": "step_done", "step_id": "read_savings_balance"}
+{"ts": "2026-09-19T21:05:08.097489+00:00", "event": "checkpoint_passed", "description": "Member [REDACTED] profile shows Savings balance $4,242.00."}
+{"ts": "2026-09-19T21:05:08.170674+00:00", "event": "trace", "file": "trace.zip", "kept": true, "existed": true}
+{"ts": "2026-09-19T21:05:08.170810+00:00", "event": "run_finished", "kind": "success"}

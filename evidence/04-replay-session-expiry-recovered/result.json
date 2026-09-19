@@ -1,0 +1,16 @@
+{
+  "evidence": {
+    "run_id": "04-replay-session-expiry-recovered",
+    "screenshot": "screenshots/final.png",
+    "trace": "trace.zip"
+  },
+  "recoveries_used": [
+    "session_expired",
+    "session_expired"
+  ],
+  "warnings": [],
+  "kind": "success",
+  "outputs": {
+    "savings_balance": "4242.00"
+  }
+}

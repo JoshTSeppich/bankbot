@@ -1,0 +1,15 @@
+{
+  "evidence": {
+    "run_id": "02-replay-success-3",
+    "screenshot": "screenshots/final.png",
+    "trace": "trace.zip"
+  },
+  "recoveries_used": [
+    "session_expired"
+  ],
+  "warnings": [],
+  "kind": "success",
+  "outputs": {
+    "savings_balance": "4242.00"
+  }
+}

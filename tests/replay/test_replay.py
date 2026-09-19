@@ -107,8 +107,9 @@ def test_session_expiry_mid_run_is_recovered_and_the_run_still_succeeds(
 def test_unknown_dialog_raises_an_intervention_request_and_unattended_runs_fail_with_it(
     page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
 ) -> None:
-    # Counted requests: 1 search (unauthenticated), 2 the redirect after login, 3 search again.
-    arm_faults(base_url, unknown_dialog_at_step=3)
+    # Counted requests: 1 the redirect after the precondition login, 2 the start screen,
+    # which now carries the dialog over the search form.
+    arm_faults(base_url, unknown_dialog_at_step=2)
     escalation = RecordingEscalation(InterventionDecision.ABORT)
     replay, run_dir = make_replay(
         load(capability_json),
@@ -135,7 +136,7 @@ def test_unknown_dialog_raises_an_intervention_request_and_unattended_runs_fail_
 def test_a_human_dismissing_the_dialog_and_answering_resume_lets_the_run_finish(
     page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
 ) -> None:
-    arm_faults(base_url, unknown_dialog_at_step=3)
+    arm_faults(base_url, unknown_dialog_at_step=2)
 
     def dismiss() -> None:
         page.get_by_role("button", name="OK").click()
@@ -412,9 +413,9 @@ def test_an_approval_covers_one_attempt_and_a_rewind_asks_again(
     strict = Policy.model_validate(
         policy.model_dump() | {"risky": {"routes": [], "controls": ["^Search$"]}}
     )
-    # Counted requests: 1 search (unauthenticated), 2 the redirect after login, 3 search
-    # again; the fourth is the results page, so the session dies right after the approved click.
-    arm_faults(base_url, session_expiry_at_step=4)
+    # Counted requests: 1 the redirect after the precondition login, 2 the start screen,
+    # 3 the results page, so the session dies right after the approved click.
+    arm_faults(base_url, session_expiry_at_step=3)
     escalation = RecordingEscalation(InterventionDecision.RESUME)
     replay, _ = make_replay(
         load(capability_json),
@@ -433,3 +434,22 @@ def test_an_approval_covers_one_attempt_and_a_rewind_asks_again(
         "submit_search",
     ]
     assert all(r.reason is InterventionReason.RISKY_NEEDS_APPROVAL for r in escalation.requests)
+
+
+def test_a_fresh_browser_meets_the_signed_in_precondition_without_a_failed_step(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Success)
+    assert result.recoveries_used == ["session_expired"], "logging in is the one recovery"
+    events = [event["event"] for event in read_events(run_dir)]
+    assert "step_failed" not in events, "nothing has to fail for the run to sign in"
+    assert events[1] == "recovery_started", "the login runs before the first step is tried"

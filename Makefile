@@ -31,7 +31,7 @@ replay-expiry:
 
 # Pauses for a human: open the operator page it prints, dismiss the dialog, hand back.
 replay-dialog:
-	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=3
+	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=2
 
 replay-variant-b:
 	$(CLI) replay $(CAP) --param member_id=M-100 --variant b
@@ -58,7 +58,7 @@ evidence-04:
 	  $(EVIDENCE) --run-id 04-replay-session-expiry-recovered
 
 evidence-05:
-	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=3 \
+	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=2 \
 	  $(EVIDENCE) --run-id 05-replay-handoff
 
 evidence-06:

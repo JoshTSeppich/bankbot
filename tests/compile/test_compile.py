@@ -15,10 +15,10 @@ from bankbot.discover import GoalSpec, StopReason, ToolAction, Transcript
 from bankbot.policy import Policy
 from bankbot.schemas import (
     Capability,
+    Fail,
     LocatorStrategy,
     Outcome,
     ParamRef,
-    Recover,
     Retry,
     Success,
     WarningCode,
@@ -72,7 +72,8 @@ def test_steps_follow_what_the_model_did_after_an_opening_navigate(recorded: Rec
         "click_dana_whitfield",
         "read_savings_balance",
     ]
-    assert capability.steps[0].on_fail == Recover(recovery_id="session_expired")
+    assert capability.steps[0].on_fail == Fail()
+    assert capability.preconditions[0].text_visible == "Signed in as"
     assert capability.recoveries[0].resume_from_step == "open_start"
 
 

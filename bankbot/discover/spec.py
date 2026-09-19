@@ -18,7 +18,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from bankbot.schemas import AppRef, InputSpec, KnownOutcome, Recovery, StrictModel
+from bankbot.schemas import AppRef, InputSpec, KnownOutcome, Recovery, StateAssertion, StrictModel
 
 OutputType = Literal["string", "money", "number"]
 
@@ -31,6 +31,10 @@ class GoalSpec(StrictModel):
     goal: str
     app: AppRef
     start_path: str
+    # What must be true before step one, such as being signed in. Replay checks these
+    # first and uses the recoveries to make them true, so a fresh browser logs in
+    # without a step having to fail first.
+    preconditions: list[StateAssertion] = Field(default_factory=list)
     inputs: dict[str, InputSpec] = Field(default_factory=dict)
     outputs: dict[str, OutputType] = Field(default_factory=dict)
     outcomes: list[KnownOutcome] = Field(default_factory=list)

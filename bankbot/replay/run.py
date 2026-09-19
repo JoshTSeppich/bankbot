@@ -47,6 +47,8 @@ from bankbot.surface import Surface, distance
 # Outcome and recovery matchers are a quick look at the page, not a wait:
 # on the happy path they run after every step and must not slow it down.
 MATCH_TIMEOUT_MS = 300
+# A precondition is a quick look too: the page has just loaded, and a miss is what starts the login.
+PRECONDITION_TIMEOUT_MS = 1000
 LOG_TAIL_LINES = 12
 TRACE_FILE = "trace.zip"
 
@@ -131,6 +133,9 @@ class Replay:
     def _execute(self) -> ReplayResult:
         self.surface.act(ActionType.NAVIGATE, None, self.base_url, self.step_timeout_ms)
         self._check_fingerprint()
+        unmet = self._ensure_preconditions()
+        if unmet is not None:
+            return unmet
         steps = self.capability.steps
         index = 0
         while index < len(steps):
@@ -142,6 +147,27 @@ class Replay:
                 return verdict
             index = verdict
         return self._finish()
+
+    def _ensure_preconditions(self) -> Failure | None:
+        """Make the artifact's preconditions true before step one, using the recoveries.
+
+        A fresh browser is never signed in. Checking "signed in" here and
+        running the matching recovery is how the run starts without a step
+        having to fail first.
+        """
+        first = self.capability.steps[0]
+        for precondition in self.capability.preconditions:
+            if self.surface.holds(precondition, PRECONDITION_TIMEOUT_MS):
+                continue
+            recovery = self._matching_recovery(None)
+            if recovery is None:
+                return self._failure(first, precondition.description, self.steps.observed())
+            failed = self._recover(recovery)
+            if failed is not None:
+                return failed
+            if not self.surface.holds(precondition, self.step_timeout_ms):
+                return self._failure(first, precondition.description, self.steps.observed())
+        return None
 
     def _finish(self) -> ReplayResult:
         last = self.capability.steps[-1]
@@ -257,14 +283,14 @@ class Replay:
                 )
         return None
 
-    def _matching_recovery(self, step: Step) -> Recovery | None:
+    def _matching_recovery(self, step: Step | None) -> Recovery | None:
         """A recovery applies when the page shows its condition, or the step names it on_fail."""
         for recovery in self.capability.recoveries:
             if self._attempts_left(recovery) and self.surface.holds(
                 recovery.matches, MATCH_TIMEOUT_MS
             ):
                 return recovery
-        if isinstance(step.on_fail, Recover):
+        if step is not None and isinstance(step.on_fail, Recover):
             for recovery in self.capability.recoveries:
                 if recovery.id == step.on_fail.recovery_id and self._attempts_left(recovery):
                     return recovery

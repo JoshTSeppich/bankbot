@@ -4,6 +4,9 @@
   "goal": "Look up the savings balance for the member and report the dollar amount.",
   "app": {"vendor": "example-cu", "app_id": "legacy-core-teller", "variant": "default"},
   "start_path": "/members/search",
+  "preconditions": [
+    {"description": "The teller is signed in", "text_visible": "Signed in as"}
+  ],
   "inputs": {
     "member_id": {"type": "string", "pattern": "^M-[0-9]+$", "required": true, "example": "M-101"}
   },

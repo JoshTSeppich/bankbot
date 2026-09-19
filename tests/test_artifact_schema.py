@@ -52,6 +52,7 @@ def test_step_referencing_undeclared_input_is_rejected_at_load_time() -> None:
 
 def test_step_referencing_undeclared_recovery_is_rejected_at_load_time() -> None:
     example = load_example()
+    example["steps"][0]["on_fail"] = {"kind": "recover", "recovery_id": "session_expired"}
     example["recoveries"] = []
     with pytest.raises(ValidationError, match="undeclared recovery 'session_expired'"):
         Capability.model_validate(example)

@@ -20,7 +20,7 @@ from tests.replay.conftest import TEST_SECRETS, arm_faults
 def test_a_person_can_take_over_dismiss_the_dialog_and_hand_back_to_a_successful_run(
     page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
 ) -> None:
-    arm_faults(base_url, unknown_dialog_at_step=3)
+    arm_faults(base_url, unknown_dialog_at_step=2)
     capability = Capability.model_validate(capability_json)
     params = {"member_id": "M-100"}
     run_dir = RunDir.create(tmp_path / "runs", new_run_id())

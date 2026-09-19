@@ -52,7 +52,14 @@
       }
     }
   },
-  "preconditions": [],
+  "preconditions": [
+    {
+      "description": "The teller is signed in",
+      "url_pattern": null,
+      "text_visible": "Signed in as",
+      "target_visible": null
+    }
+  ],
   "steps": [
     {
       "id": "open_search",
@@ -68,8 +75,7 @@
         "target_visible": null
       },
       "on_fail": {
-        "kind": "recover",
-        "recovery_id": "session_expired"
+        "kind": "fail"
       }
     },
     {

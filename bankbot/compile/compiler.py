@@ -31,7 +31,6 @@ from bankbot.schemas import (
     OutputRef,
     OutputSpec,
     ParamRef,
-    Recover,
     Recovery,
     Retry,
     RunProvenance,
@@ -118,6 +117,7 @@ def compile_capability(
         ),
         inputs=dict(spec.inputs),
         outputs=outputs,
+        preconditions=list(spec.preconditions),
         steps=steps,
         checkpoint=checkpoint,
         outcomes=list(spec.outcomes),
@@ -132,8 +132,8 @@ class OpenStart:
         self.spec = spec
 
     def step(self) -> Step:
-        """Navigate to the start path; a login redirect here is what the first recovery is for."""
-        step = Step(
+        """Navigate to the start path. Being signed in is a precondition, checked before this."""
+        return Step(
             id=OPEN_STEP_ID,
             action=ActionType.NAVIGATE,
             value=LiteralValue(literal=self.spec.start_path),
@@ -142,11 +142,6 @@ class OpenStart:
                 url_pattern=re.escape(self.spec.start_path) + "$",
             ),
         )
-        if self.spec.recoveries:
-            step = step.model_copy(
-                update={"on_fail": Recover(recovery_id=self.spec.recoveries[0].id)}
-            )
-        return step
 
 
 def _acted_step(

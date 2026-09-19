@@ -1,6 +1,6 @@
 # ADR-0004: Control transfer between automation and human
 
-Status: Proposed
+Status: Accepted
 Date: 2026-09-19
 
 ## Context
@@ -22,6 +22,53 @@ infrastructure, and a state model small enough to draw on a whiteboard.
 
 ## Decision
 
+One state machine, one object, one lock, same process, same browser.
+
+```
+AUTOMATION -> INTERVENTION_REQUESTED -> HUMAN -> RESUME_REQUESTED -> AUTOMATION
+                                   \-> ABORTED   (from any live state)
+AUTOMATION -> FINISHED  (the run ended)
+```
+
+`RunController` holds the state for one run and is shared between the
+engine thread and the FastAPI operator app. The engine calls
+`request()` and blocks inside it until a person answers. Blocking inside
+the step loop is what lets the engine continue from the same step: on
+resume it re-runs the step it stopped on, or, if the person marked the
+step complete, checks the step's `wait_for` before trusting them.
+
+| Decision | Choice | Why |
+|---|---|---|
+| Same browser | The person drives the page the engine opened, headed | They see exactly what the engine saw. There is no second session to get out of sync. |
+| While waiting | The engine pumps Playwright, takes a masked screenshot every second, and records page events | The sync client only hears about events inside a Playwright call. A sleeping engine would record nothing. |
+| Recording window | From the ask to the answer, not only while HUMAN | The engine is idle for exactly that span, so anything that happens on the page was a person. |
+| What is recorded | Clicks, edits and navigations as `human_action` events: kind, element description, frame, URL | Typed values are dropped in the browser, before they reach Python. |
+| Answers | Hand back (retry), mark step complete (check `wait_for`, then next step), abort | Three buttons. A stale button from a second tab is ignored and the page shows the real state. |
+| Lease | The operator page pings every 10 s while HUMAN; three misses aborts with reason `operator_lost` | A bank session is never held open for nobody. |
+| Operator page | Two Jinja pages, one stylesheet, the heartbeat is the only script | The mechanism is the deliverable; the page is not. |
+
 ## Alternatives rejected
 
+- A second browser for the human (or a remote desktop): two sessions,
+  two cookies, and the engine cannot see what the person did.
+- Restart the run after a human fixed the page: loses the state the
+  person just created, and a restart on a bank page can repeat a
+  side-effecting step.
+- WebSockets or a queue for the operator page: a two-second meta
+  refresh and a one-second screenshot are enough for one operator, and
+  there is nothing to explain.
+- Multi-operator, auth, a real console: out of scope. Mocked and named
+  as such in the README.
+
 ## Consequences
+
+Easier: the handoff is testable end to end in one process with a fake
+person on the engine thread. Evidence run 5 is that test with a real
+person.
+
+Harder: the engine thread owns Playwright, so a person's actions can
+only be observed, never scripted from the operator thread. Every test
+that plays the person does so from the engine's pump.
+
+To revisit: recorded human actions are stored, not used. Turning them
+into a repaired step is the next build (REPORT §7).

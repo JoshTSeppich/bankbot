@@ -1,0 +1,707 @@
+{
+  "$defs": {
+    "ActionType": {
+      "description": "The complete vocabulary a step may use; the surface implements exactly these.",
+      "enum": [
+        "navigate",
+        "click",
+        "type",
+        "select",
+        "wait",
+        "extract",
+        "assert"
+      ],
+      "title": "ActionType",
+      "type": "string"
+    },
+    "AppFingerprint": {
+      "additionalProperties": false,
+      "description": "What the app looked like at recording time, so replay can tell it is on the wrong variant.\n\nscreen_hashes maps a key screen's name to a hash of its ARIA snapshot.\nA mismatch on replay means the UI differs from what was recorded, which\nis a different signal from a single control drifting.",
+      "properties": {
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "screen_hashes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "title": "Screen Hashes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "title",
+        "version"
+      ],
+      "title": "AppFingerprint",
+      "type": "object"
+    },
+    "AppRef": {
+      "additionalProperties": false,
+      "description": "Which application, and which tenant variant of it, the artifact was recorded against.\n\nvariant is the multi-tenant hook: a per-credit-union override would target\nthe same vendor/app_id with a different variant (ADR-0001). fingerprint is\noptional because hand-written artifacts have none; compiled ones always do.",
+      "properties": {
+        "vendor": {
+          "title": "Vendor",
+          "type": "string"
+        },
+        "app_id": {
+          "title": "App Id",
+          "type": "string"
+        },
+        "variant": {
+          "default": "default",
+          "title": "Variant",
+          "type": "string"
+        },
+        "fingerprint": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppFingerprint"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "vendor",
+        "app_id"
+      ],
+      "title": "AppRef",
+      "type": "object"
+    },
+    "Approval": {
+      "description": "Whether a human has reviewed the artifact since it was compiled.",
+      "enum": [
+        "draft",
+        "approved"
+      ],
+      "title": "Approval",
+      "type": "string"
+    },
+    "Candidate": {
+      "additionalProperties": false,
+      "description": "One way to find a control, with the reasoning a reviewer can audit.",
+      "properties": {
+        "strategy": {
+          "$ref": "#/$defs/LocatorStrategy"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "reasoning": {
+          "title": "Reasoning",
+          "type": "string"
+        }
+      },
+      "required": [
+        "strategy",
+        "value",
+        "confidence",
+        "reasoning"
+      ],
+      "title": "Candidate",
+      "type": "object"
+    },
+    "Fail": {
+      "additionalProperties": false,
+      "description": "On failure, stop and report.\n\nI made this the default so an unhandled case stops the run instead of\nbeing retried or recovered silently.",
+      "properties": {
+        "kind": {
+          "const": "fail",
+          "default": "fail",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "title": "Fail",
+      "type": "object"
+    },
+    "InputSpec": {
+      "additionalProperties": false,
+      "description": "A named parameter the capability takes; the example lets a reviewer run it by hand.",
+      "properties": {
+        "type": {
+          "const": "string",
+          "default": "string",
+          "title": "Type",
+          "type": "string"
+        },
+        "pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pattern"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "example": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Example"
+        }
+      },
+      "title": "InputSpec",
+      "type": "object"
+    },
+    "KnownOutcome": {
+      "additionalProperties": false,
+      "description": "A recognised end state that is an answer, not a failure (e.g. member_not_found).",
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "matches": {
+          "$ref": "#/$defs/StateAssertion"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "matches",
+        "message"
+      ],
+      "title": "KnownOutcome",
+      "type": "object"
+    },
+    "LiteralValue": {
+      "additionalProperties": false,
+      "description": "A value fixed at recording time, such as a URL path or a dropdown option.",
+      "properties": {
+        "literal": {
+          "title": "Literal",
+          "type": "string"
+        }
+      },
+      "required": [
+        "literal"
+      ],
+      "title": "LiteralValue",
+      "type": "object"
+    },
+    "LocatorStrategy": {
+      "description": "Ways a candidate can name a control, from most to least durable across UI drift.",
+      "enum": [
+        "role_name",
+        "label",
+        "text",
+        "css_structural",
+        "bbox"
+      ],
+      "title": "LocatorStrategy",
+      "type": "string"
+    },
+    "OutputRef": {
+      "additionalProperties": false,
+      "description": "Points an extract step at the named output whose declared target it should read.",
+      "properties": {
+        "output": {
+          "title": "Output",
+          "type": "string"
+        }
+      },
+      "required": [
+        "output"
+      ],
+      "title": "OutputRef",
+      "type": "object"
+    },
+    "OutputSpec": {
+      "additionalProperties": false,
+      "description": "A named value the capability returns and the control it is read from.",
+      "properties": {
+        "type": {
+          "enum": [
+            "string",
+            "money",
+            "number"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "extract": {
+          "$ref": "#/$defs/TargetRef"
+        }
+      },
+      "required": [
+        "type",
+        "extract"
+      ],
+      "title": "OutputSpec",
+      "type": "object"
+    },
+    "ParamRef": {
+      "additionalProperties": false,
+      "description": "Points a step at a named input, so artifacts hold parameter names and never values.",
+      "properties": {
+        "param": {
+          "title": "Param",
+          "type": "string"
+        }
+      },
+      "required": [
+        "param"
+      ],
+      "title": "ParamRef",
+      "type": "object"
+    },
+    "Recover": {
+      "additionalProperties": false,
+      "description": "On failure, run a named recovery from the artifact and then continue (session expiry).",
+      "properties": {
+        "kind": {
+          "const": "recover",
+          "default": "recover",
+          "title": "Kind",
+          "type": "string"
+        },
+        "recovery_id": {
+          "title": "Recovery Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "recovery_id"
+      ],
+      "title": "Recover",
+      "type": "object"
+    },
+    "Recovery": {
+      "additionalProperties": false,
+      "description": "A recognised detour with a known way back (e.g. session expired: log in, retry).\n\nresume_from_step names where to continue after the recovery steps; omitted\nmeans retry the step that was interrupted. max_attempts bounds loops.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "matches": {
+          "$ref": "#/$defs/StateAssertion"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "resume_from_step": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resume From Step"
+        },
+        "max_attempts": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "matches",
+        "steps"
+      ],
+      "title": "Recovery",
+      "type": "object"
+    },
+    "Retry": {
+      "additionalProperties": false,
+      "description": "On failure, try the same step again a bounded number of times (slow loads).",
+      "properties": {
+        "kind": {
+          "const": "retry",
+          "default": "retry",
+          "title": "Kind",
+          "type": "string"
+        },
+        "attempts": {
+          "minimum": 1,
+          "title": "Attempts",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attempts"
+      ],
+      "title": "Retry",
+      "type": "object"
+    },
+    "Risk": {
+      "description": "Whether unattended replay may run this capability without a human approving it.",
+      "enum": [
+        "safe",
+        "risky"
+      ],
+      "title": "Risk",
+      "type": "string"
+    },
+    "RunProvenance": {
+      "additionalProperties": false,
+      "description": "Which discovery run produced the artifact, with enough detail to audit it.\n\nrequest_ids are the model API request ids. I record them so the\nevidence in the repo can be tied to real model calls, not asserted.",
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "sdk_versions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Sdk Versions",
+          "type": "object"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "finished_at": {
+          "format": "date-time",
+          "title": "Finished At",
+          "type": "string"
+        },
+        "request_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Request Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run_id",
+        "model",
+        "sdk_versions",
+        "started_at",
+        "finished_at"
+      ],
+      "title": "RunProvenance",
+      "type": "object"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "description": "Points a step at a credential by the name of the environment variable holding it.\n\nI keep this separate from ParamRef so a secret can never be a caller\nsupplied input. The surface resolves it from the environment at run\ntime. The artifact and the run log only ever see the name.",
+      "properties": {
+        "secret": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "title": "Secret",
+          "type": "string"
+        }
+      },
+      "required": [
+        "secret"
+      ],
+      "title": "SecretRef",
+      "type": "object"
+    },
+    "StateAssertion": {
+      "additionalProperties": false,
+      "description": "A checkable claim about the page.\n\nUsed for preconditions, step waits, the success checkpoint, and the\nmatchers of known outcomes and recoveries. Every listed condition must\nhold. I reject an assertion with no condition because it would pass\nvacuously and hide an artifact bug.",
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "url_pattern": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url Pattern"
+        },
+        "text_visible": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Visible"
+        },
+        "target_visible": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TargetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "description"
+      ],
+      "title": "StateAssertion",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "description": "One action in the recorded flow.\n\nI made extract steps name an output instead of carrying their own target,\nso one place declares where a value is read. The output says where, the\nstep says when.",
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "action": {
+          "$ref": "#/$defs/ActionType"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TargetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "value": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ParamRef"
+            },
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "$ref": "#/$defs/OutputRef"
+            },
+            {
+              "$ref": "#/$defs/LiteralValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        },
+        "wait_for": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StateAssertion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "on_fail": {
+          "discriminator": {
+            "mapping": {
+              "fail": "#/$defs/Fail",
+              "recover": "#/$defs/Recover",
+              "retry": "#/$defs/Retry"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Retry"
+            },
+            {
+              "$ref": "#/$defs/Recover"
+            },
+            {
+              "$ref": "#/$defs/Fail"
+            }
+          ],
+          "title": "On Fail"
+        }
+      },
+      "required": [
+        "id",
+        "action"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "TargetRef": {
+      "additionalProperties": false,
+      "description": "Ranked candidates for one control, tried in order until one resolves.\n\nI use a ranked list rather than a single selector because the page may\nchange between recording and replay. A later candidate winning is my\ndrift signal (ADR-0002).\n\nframe_path is the chain of frame names from the top document down to\nthe one holding the control. Empty means the top document. Legacy apps\nput forms inside iframes and framesets, and a locator that ignores the\nframe never resolves.",
+      "properties": {
+        "candidates": {
+          "items": {
+            "$ref": "#/$defs/Candidate"
+          },
+          "minItems": 1,
+          "title": "Candidates",
+          "type": "array"
+        },
+        "frame_path": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Frame Path",
+          "type": "array"
+        }
+      },
+      "required": [
+        "candidates"
+      ],
+      "title": "TargetRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A recorded workflow that can be invoked like a function: inputs in, outputs out.\n\nI check every reference a step makes (input, output, recovery, step id)\nat load time, so a broken artifact is rejected before it touches a live\nbank rather than mid-replay.",
+  "properties": {
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "title": "Version",
+      "type": "string"
+    },
+    "app": {
+      "$ref": "#/$defs/AppRef"
+    },
+    "created_from_run": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/RunProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "inputs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/InputSpec"
+      },
+      "default": {},
+      "title": "Inputs",
+      "type": "object"
+    },
+    "outputs": {
+      "additionalProperties": {
+        "$ref": "#/$defs/OutputSpec"
+      },
+      "default": {},
+      "title": "Outputs",
+      "type": "object"
+    },
+    "preconditions": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StateAssertion"
+      },
+      "title": "Preconditions",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "checkpoint": {
+      "$ref": "#/$defs/StateAssertion"
+    },
+    "outcomes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/KnownOutcome"
+      },
+      "title": "Outcomes",
+      "type": "array"
+    },
+    "recoveries": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Recovery"
+      },
+      "title": "Recoveries",
+      "type": "array"
+    },
+    "risk": {
+      "$ref": "#/$defs/Risk",
+      "default": "safe"
+    },
+    "approval": {
+      "$ref": "#/$defs/Approval",
+      "default": "draft"
+    }
+  },
+  "required": [
+    "id",
+    "name",
+    "version",
+    "app",
+    "steps",
+    "checkpoint"
+  ],
+  "title": "Capability",
+  "type": "object"
+}

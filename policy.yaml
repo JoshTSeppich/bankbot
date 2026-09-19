@@ -1,0 +1,37 @@
+# What the automation may do against the bank application. Anything not
+# listed here is blocked. Loaded by bankbot/policy; see docs/adr/0005-policy-model.md.
+
+# Hosts: keeps the agent on the bank application and off every other site.
+allowed_hosts:
+  - 127.0.0.1
+  - localhost
+
+# Routes (patterns matched against the URL path): keeps the agent inside the
+# member workflow and out of pages such as /admin. "(b/)?" covers variant B.
+allowed_routes:
+  - "^/$"
+  - "^/b/?$"
+  - "^/(b/)?login$"
+  - "^/(b/)?members/.*"
+
+# Actions: the only kinds of browser action the agent may take.
+allowed_actions: [navigate, click, type, select, extract, assert, wait]
+
+# Risky: anything matching here needs a human before it runs, because it
+# cannot be undone. Routes match the URL path; controls match the button name.
+risky:
+  routes:
+    - "/close$"
+    - "/transfer"
+  controls:
+    - "^Close account$"
+    - "^Confirm$"
+    - "^Submit$"
+    - "^Transfer$"
+
+# Redaction: keeps credentials and member data out of logs and screenshots.
+redaction:
+  # Any environment variable whose name ends in one of these holds a secret.
+  secret_env_suffixes: [_KEY, _TOKEN, _SECRET, _ID]
+  # Fields blurred in every screenshot before it is saved.
+  mask_selectors: ["input[type=password]"]

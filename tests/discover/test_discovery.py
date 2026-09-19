@@ -139,6 +139,7 @@ def test_a_risky_action_is_blocked_reported_to_the_model_and_never_performed(
     page: Page, policy: Policy, base_url: str, tmp_path: Path
 ) -> None:
     close = act(ToolAction.CLICK, role="button", name="Close account")
+    # One close is enough: a risky proposal asks a person at once. The second is never reached.
     script = [*HAPPY_PATH[:3], close, close]
     escalation = RecordingEscalation(InterventionDecision.ABORT)
     discovery, _ = make_discovery(
@@ -157,7 +158,8 @@ def test_a_risky_action_is_blocked_reported_to_the_model_and_never_performed(
     assert blocked.detail.startswith("blocked:")
     assert blocked.policy is not None and blocked.policy.risky
     assert "Account closed" not in page.content()
-    # Two blocks in a row ask a human; unattended, that ends the run.
+    # A risky block asks a human at once; unattended, that ends the run.
+    assert len(transcript.steps) == 4
     assert transcript.stop_reason is StopReason.INTERVENTION_ABORTED
     assert escalation.requests[0].reason is InterventionReason.RISKY_NEEDS_APPROVAL
 

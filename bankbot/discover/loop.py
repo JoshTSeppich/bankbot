@@ -5,7 +5,9 @@ model only ever proposes; this loop decides whether a proposal is allowed,
 whether `done` is earned (an assert_state after the last action and every
 declared output extracted), and when to stop because nothing is changing.
 A blocked action goes back to the model as an observation, never silently
-dropped; two blocks in a row ask a human.
+dropped. Two allowlist blocks in a row ask a human. A risky block asks a
+human at once: the model has just said the goal needs an irreversible
+action, and that is a person's call, not something to route around.
 
 Does not own: talking to the model (discover/model.py), the tool shape
 (discover/tools.py), or compiling what it recorded (compile/).
@@ -382,14 +384,16 @@ class Discovery:
         self, index: int, applied: Applied, screenshot: object
     ) -> StopReason | None:
         reason: InterventionReason | None = None
-        if self._consecutive_blocks >= BLOCKS_BEFORE_ESCALATION:
-            risky = applied.policy is not None and applied.policy.risky
-            reason = (
-                InterventionReason.RISKY_NEEDS_APPROVAL
-                if risky
-                else InterventionReason.STUCK_IN_DISCOVERY
-            )
-        elif self._unchanged_actions >= STUCK_AFTER_UNCHANGED_ACTIONS:
+        risky_blocked = (
+            applied.status == "blocked" and applied.policy is not None and applied.policy.risky
+        )
+        stuck = (
+            self._consecutive_blocks >= BLOCKS_BEFORE_ESCALATION
+            or self._unchanged_actions >= STUCK_AFTER_UNCHANGED_ACTIONS
+        )
+        if risky_blocked:
+            reason = InterventionReason.RISKY_NEEDS_APPROVAL
+        elif stuck:
             reason = InterventionReason.STUCK_IN_DISCOVERY
         if reason is None:
             return None

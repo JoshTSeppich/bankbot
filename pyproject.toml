@@ -51,6 +51,7 @@ select = [
 ignore = [
     "D105",     # magic methods need no docstring
     "D107",     # __init__ needs no docstring; the class docstring covers it
+    "N818",     # exceptions are named after the condition (MemberNotFound), not suffixed Error
 ]
 
 [tool.ruff.lint.pydocstyle]

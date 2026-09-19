@@ -4,6 +4,7 @@
 <table>
   <tr><td>Member ID</td><td>{{ member.member_id }}</td></tr>
   <tr><td>Branch</td><td>{{ member.branch }}</td></tr>
+  {% if member.note %}<tr><td>Note</td><td>{{ member.note }}</td></tr>{% endif %}
 </table>
 <table class="accounts">
   <thead>

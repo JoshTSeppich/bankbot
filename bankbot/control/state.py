@@ -118,13 +118,20 @@ class RunController:
 
     # --- engine side (replay's Escalation protocol) ----------------------
 
+    def aborted(self) -> bool:
+        """Whether the operator has ended the run. Replay asks before every step."""
+        return self.state is ControlState.ABORTED
+
     def request(self, request: InterventionRequest) -> InterventionDecision:
         """Hand the browser to a person and block until they hand it back or abort.
 
         Blocking here, inside the step loop, is what lets the engine continue
-        from the same step afterwards.
+        from the same step afterwards. A run the operator has already ended
+        is answered ABORT at once rather than reopened.
         """
         with self._lock:
+            if self._state is ControlState.ABORTED:
+                return InterventionDecision.ABORT
             self._state = ControlState.INTERVENTION_REQUESTED
             self._decision = None
             self._requested_at = time.monotonic()

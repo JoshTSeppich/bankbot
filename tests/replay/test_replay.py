@@ -29,6 +29,9 @@ class RecordingEscalation:
         self.before = before
         self.requests: list[InterventionRequest] = []
 
+    def aborted(self) -> bool:
+        return False
+
     def request(self, request: InterventionRequest) -> InterventionDecision:
         self.requests.append(request)
         if self.before is not None:
@@ -453,3 +456,38 @@ def test_a_fresh_browser_meets_the_signed_in_precondition_without_a_failed_step(
     events = [event["event"] for event in read_events(run_dir)]
     assert "step_failed" not in events, "nothing has to fail for the run to sign in"
     assert events[1] == "recovery_started", "the login runs before the first step is tried"
+
+
+class AbortAfter:
+    """An operator who presses Abort while the automation is running, after N steps."""
+
+    def __init__(self, steps: int) -> None:
+        self.steps = steps
+        self.asked = 0
+
+    def aborted(self) -> bool:
+        self.asked += 1
+        return self.asked > self.steps
+
+    def request(self, request: InterventionRequest) -> InterventionDecision:
+        return InterventionDecision.ABORT
+
+
+def test_an_abort_pressed_while_the_automation_runs_stops_before_the_next_step(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        escalation=AbortAfter(steps=2),
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.step_id == capability_json["steps"][2]["id"]
+    assert result.observed == "aborted by the operator"
+    started = [e["step_id"] for e in read_events(run_dir) if e["event"] == "step_started"]
+    assert capability_json["steps"][2]["id"] not in started

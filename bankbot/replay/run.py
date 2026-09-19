@@ -203,6 +203,8 @@ class Replay:
         """
         retries_left = step.on_fail.attempts if isinstance(step.on_fail, Retry) else 0
         while True:
+            if self.escalation.aborted():
+                return self._failure(step, "the run to continue", "aborted by the operator")
             failure = self._try(step)
             outcome = self._matching_outcome()
             if outcome is not None:

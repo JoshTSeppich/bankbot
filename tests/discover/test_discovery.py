@@ -24,6 +24,9 @@ class RecordingEscalation:
         self.decision = decision
         self.requests: list[InterventionRequest] = []
 
+    def aborted(self) -> bool:
+        return False
+
     def request(self, request: InterventionRequest) -> InterventionDecision:
         self.requests.append(request)
         return self.decision

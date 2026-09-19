@@ -22,6 +22,10 @@ class Escalation(Protocol):
         """Block until someone decides, then say what the engine should do next."""
         ...
 
+    def aborted(self) -> bool:
+        """Whether someone has already ended the run; the engine asks before every step."""
+        ...
+
 
 class Unattended:
     """Nobody is there. Every request is answered ABORT, so the run ends as a Failure.
@@ -33,3 +37,7 @@ class Unattended:
     def request(self, request: InterventionRequest) -> InterventionDecision:
         """Answer immediately; the Failure carries the request so a human can read it later."""
         return InterventionDecision.ABORT
+
+    def aborted(self) -> bool:
+        """Nobody is there to abort."""
+        return False

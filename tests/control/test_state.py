@@ -224,3 +224,12 @@ def test_a_live_view_that_cannot_be_taken_mid_navigation_is_skipped_not_fatal(
     thread.join()
     assert decision is InterventionDecision.RESUME
     assert flaky.attempts >= 1
+
+
+def test_a_run_the_operator_already_ended_is_answered_abort_at_once(
+    controller: RunController,
+) -> None:
+    controller.abort()
+    assert controller.aborted()
+    assert controller.request(a_request(controller.run_id)) is InterventionDecision.ABORT
+    assert current(controller) is ControlState.ABORTED, "not reopened as a new request"

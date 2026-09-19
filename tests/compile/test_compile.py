@@ -21,7 +21,6 @@ from bankbot.schemas import (
     ParamRef,
     Retry,
     Success,
-    WarningCode,
 )
 from tests.discover.conftest import (
     HAPPY_PATH,
@@ -148,7 +147,7 @@ def test_compiled_artifact_replays_to_the_same_results_as_the_hand_written_one(
             assert first.code == second.code == "member_not_found"
 
 
-def test_compiled_artifact_generalises_to_another_member_with_a_drift_warning(
+def test_compiled_artifact_generalises_to_another_member_without_a_drift_warning(
     recorded: Recorded, page: Page, policy: Policy, base_url: str, tmp_path: Path
 ) -> None:
     replay, _ = make_replay(
@@ -162,9 +161,9 @@ def test_compiled_artifact_generalises_to_another_member_with_a_drift_warning(
     result = replay.run()
     assert isinstance(result, Success)
     assert result.outputs == {"savings_balance": "1050.25"}
-    # The link was recorded by the first member's name; a structural candidate found this one.
-    drift = [warning for warning in result.warnings if warning.code is WarningCode.DRIFT]
-    assert [warning.step_id for warning in drift] == ["click_dana_whitfield"]
+    # The link carries the recorded member's name, which is page data: the results row
+    # position ranks first, so another member resolves without any drift.
+    assert result.warnings == []
 
 
 def test_a_typed_secret_refuses_to_compile(recorded: Recorded) -> None:
@@ -236,3 +235,17 @@ def test_an_assert_that_names_the_output_value_is_generalised_to_the_text_around
     result = replay.run()
     assert isinstance(result, Success)
     assert result.outputs == {"savings_balance": "1050.25"}
+
+
+def test_a_link_named_after_a_record_ranks_its_position_first_and_its_name_last(
+    recorded: Recorded,
+) -> None:
+    capability = compiled(recorded)
+    link = next(step for step in capability.steps if step.id == "click_dana_whitfield")
+    assert link.target is not None
+    strategies = [candidate.strategy for candidate in link.target.candidates]
+    assert strategies[0] is LocatorStrategy.CSS_STRUCTURAL
+    assert strategies[-2:] == [LocatorStrategy.ROLE_NAME, LocatorStrategy.BBOX]
+    search = next(step for step in capability.steps if step.id == "click_search")
+    assert search.target is not None
+    assert search.target.candidates[0].strategy is LocatorStrategy.ROLE_NAME, "buttons keep theirs"

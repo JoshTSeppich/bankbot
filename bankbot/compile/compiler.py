@@ -38,6 +38,7 @@ from bankbot.schemas import (
     Step,
     TargetRef,
 )
+from bankbot.surface import ElementFacts
 
 FIRST_VERSION = "1.0.0"
 NAVIGATION_RETRIES = 2
@@ -155,7 +156,11 @@ def _acted_step(
     action = recorded.action
     kind = ActionType(action.action.value)
     target = (
-        target_from_facts(recorded.element, action.reasoning)
+        target_from_facts(
+            recorded.element,
+            action.reasoning,
+            name_is_data=_names_a_record(recorded.element, transcript),
+        )
         if recorded.element is not None
         else None
     )
@@ -178,6 +183,21 @@ def _acted_step(
         # A click that navigates is where slow loads bite; a bounded retry covers them.
         step = step.model_copy(update={"on_fail": Retry(attempts=NAVIGATION_RETRIES)})
     return step
+
+
+def _names_a_record(element: ElementFacts, transcript: Transcript) -> bool:
+    """A link whose text was not on the start screen is a record the search brought up.
+
+    Links are where records live in a table-based app; buttons and fields
+    keep their names between visits. Anything that was on the start screen
+    before a parameter was typed is part of the app, not of the data.
+    """
+    if element.role != "link" or not element.name:
+        return False
+    start = transcript.steps[0].observation if transcript.steps else None
+    if start is None:
+        return False
+    return not any(element.name in frame.aria for frame in start.frames)
 
 
 def _typed_value(

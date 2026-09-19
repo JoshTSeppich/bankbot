@@ -189,6 +189,9 @@ class Replay:
                 recovery_failure = self._recover(recovery)
                 if recovery_failure is not None:
                     return recovery_failure
+                # An approval covers one attempt. After a rewind every risky step is asked
+                # again, so a transfer approved before a session expiry cannot repeat unasked.
+                self.steps.approved_steps.clear()
                 if recovery.resume_from_step is not None:
                     return self._index_of(recovery.resume_from_step)
                 continue

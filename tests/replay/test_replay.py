@@ -403,3 +403,33 @@ def test_a_navigate_is_checked_against_its_destination_not_the_page_it_leaves(
     assert result.step_id == "wander"
     assert "/admin/faults" in result.observed
     assert "/admin/faults" not in page.url
+
+
+def test_an_approval_covers_one_attempt_and_a_rewind_asks_again(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    # A policy under which Search is risky, so the happy path has a step a person must approve.
+    strict = Policy.model_validate(
+        policy.model_dump() | {"risky": {"routes": [], "controls": ["^Search$"]}}
+    )
+    # Counted requests: 1 search (unauthenticated), 2 the redirect after login, 3 search
+    # again; the fourth is the results page, so the session dies right after the approved click.
+    arm_faults(base_url, session_expiry_at_step=4)
+    escalation = RecordingEscalation(InterventionDecision.RESUME)
+    replay, _ = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=strict,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        escalation=escalation,
+    )
+    result = replay.run()
+    assert isinstance(result, Success)
+    assert result.recoveries_used == ["session_expired", "session_expired"]
+    assert [request.step_id for request in escalation.requests] == [
+        "submit_search",
+        "submit_search",
+    ]
+    assert all(r.reason is InterventionReason.RISKY_NEEDS_APPROVAL for r in escalation.requests)

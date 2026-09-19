@@ -1,0 +1,41 @@
+# Enforces the CLAUDE.md pre-commit contract:
+#   uv run ruff format && uv run ruff check && uv run mypy && uv run pytest
+# plus a secret scan. I made the four Python hooks `language: system` so they
+# use the versions pinned in uv.lock rather than a second copy managed by
+# pre-commit. They run over the whole package (not just staged files) whenever
+# a Python file is staged, because mypy and pytest only mean something whole.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: mypy
+        name: mypy --strict
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+
+  # Blocks the commit if a staged change contains anything that looks like a
+  # secret (API keys, tokens). Scans staged content only, so unstaged scratch
+  # such as spike/ is not in scope.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks

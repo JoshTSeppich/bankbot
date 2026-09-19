@@ -1,0 +1,76 @@
+[project]
+name = "bankbot"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic>=1.7.0",
+    "fastapi>=0.141.1",
+    "jinja2>=3.1.6",
+    "playwright==1.56.0",
+    "pydantic==2.12.3",
+    "python-dotenv>=1.2.3",
+    "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
+    "uvicorn>=0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "ruff>=0.16.8",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+# ---------------------------------------------------------------------------
+# Tooling. The pre-commit config runs exactly these four commands before every
+# commit: ruff format, ruff check, mypy, pytest. Keep this the single source of
+# truth for their configuration so local runs and the hook cannot disagree.
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+# spike/ is the throwaway Day-0 discovery spike; it is scratch, not product code.
+extend-exclude = ["spike"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "N",        # pep8-naming
+    "SIM",      # simplify
+    "RUF",      # ruff-specific
+    "D",        # pydocstyle: every public module/class/function explains why it exists
+]
+ignore = [
+    "D105",     # magic methods need no docstring
+    "D107",     # __init__ needs no docstring; the class docstring covers it
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Test names are the documentation; a docstring on top would restate them.
+"tests/**" = ["D"]
+
+[tool.mypy]
+strict = true
+files = ["bankbot", "tests"]
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

@@ -1,0 +1,42 @@
+# Environments and secrets
+.venv/
+.env
+.python-version
+
+# Python caches and build output
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Run outputs: Playwright traces, screenshots and JSONL logs are written to
+# runs/<id>/ and never committed from there ...
+runs/
+test-results/
+playwright-report/
+*.zip
+*.png
+*.jpg
+*.jsonl
+
+# ... except under evidence/, which is committed deliberately (after redaction
+# review) as the output of the finished system.
+!evidence/**
+
+# Playwright / spike scratch artifacts
+spike/out/
+
+# The brief, application correspondence and my working build plan are local
+# reference only
+*.pdf
+PLAN.md
+
+# OS noise
+.DS_Store
+
+# Operator page mockups from the design tool; the Jinja port is what ships
+design/

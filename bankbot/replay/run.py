@@ -42,7 +42,7 @@ from bankbot.schemas import (
     Success,
     WarningCode,
 )
-from bankbot.surface import ActionFailed, Surface, distance
+from bankbot.surface import ActionFailed, SessionLost, Surface, distance
 
 # Outcome and recovery matchers are a quick look at the page, not a wait:
 # on the happy path they run after every step and must not slow it down.
@@ -103,6 +103,8 @@ class Replay:
         self._recoveries_used: list[str] = []
         self._recovery_attempts: dict[str, int] = {}
         self._screens_checked: set[str] = set()
+        self._current_step: Step = capability.steps[0]
+        self._pending_request: InterventionRequest | None = None
 
     # --- the run ---------------------------------------------------------
 
@@ -123,6 +125,8 @@ class Replay:
         self.surface.start_trace()
         try:
             result = self._execute()
+        except SessionLost as lost:
+            result = self._browser_gone(lost)
         finally:
             self.surface.stop_trace(self.run_dir.trace_path)
         self.writer.save_result(result)
@@ -167,6 +171,24 @@ class Replay:
                 f"{failed.reason} at {failed.observed}",
             )
         return None
+
+    def _browser_gone(self, lost: SessionLost) -> Failure:
+        """Report a closed browser without asking the browser anything.
+
+        Everything this Failure says is something replay already knew: the
+        step it was on, and the ask a person never answered. There is no
+        screenshot and no trace, because taking either one needs the page
+        that has just gone away.
+        """
+        return Failure(
+            step_id=self._current_step.id,
+            expected="the browser to stay open",
+            observed=f"session_lost: {lost}",
+            intervention=self._pending_request,
+            evidence=Evidence(run_id=self.run_dir.run_id, screenshot=None, trace=None),
+            recoveries_used=list(self._recoveries_used),
+            warnings=list(self._warnings),
+        )
 
     def _ensure_preconditions(self) -> Failure | None:
         """Make the artifact's preconditions true before step one, using the recoveries.
@@ -221,6 +243,7 @@ class Replay:
         (a recovery may point elsewhere), otherwise the result that ends
         the run.
         """
+        self._current_step = step
         retries_left = step.on_fail.retries if isinstance(step.on_fail, Retry) else 0
         while True:
             if self.escalation.aborted():
@@ -354,7 +377,11 @@ class Replay:
             expected=failure.expected,
             observed=failure.observed,
         )
+        # Held, not cleared in a finally: if the browser dies during the ask, the unanswered
+        # request is the most useful thing the Failure can carry.
+        self._pending_request = request
         decision = self.escalation.request(request)
+        self._pending_request = None
         self.writer.event(Event.INTERVENTION_ANSWERED, step_id=step.id, decision=decision.value)
         return decision, request
 

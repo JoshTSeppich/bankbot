@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from typing import Any
 
@@ -532,3 +533,63 @@ def test_a_failed_run_still_ends_its_log_with_run_finished(
     assert events[0] == "run_started"
     assert events[-1] == "run_finished"
     assert run_dir.result_path.exists()
+
+
+class ClosesTheBrowser:
+    """A person who answers an intervention by closing the window and walking away."""
+
+    def __init__(self, page: Page) -> None:
+        self.page = page
+
+    def aborted(self) -> bool:
+        return False
+
+    def request(self, request: InterventionRequest) -> InterventionDecision:
+        self.page.close()
+        return InterventionDecision.RESUME
+
+
+def test_closing_the_page_mid_step_ends_the_run_as_session_lost(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    arm_faults(base_url, unknown_dialog_at_step=2)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        escalation=ClosesTheBrowser(page),
+        step_timeout_ms=1500,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.step_id == "submit_search"
+    assert result.observed.startswith("session_lost")
+    events = [event["event"] for event in read_events(run_dir)]
+    assert events[-1] == "run_finished"
+    assert run_dir.result_path.exists()
+
+
+def test_a_session_lost_failure_is_written_without_a_screenshot_or_a_trace(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    arm_faults(base_url, unknown_dialog_at_step=2)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        escalation=ClosesTheBrowser(page),
+        step_timeout_ms=1500,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.evidence.screenshot is None
+    assert result.evidence.trace is None
+    assert not run_dir.trace_path.exists()
+    written = json.loads(run_dir.result_path.read_text())
+    assert written["evidence"]["screenshot"] is None

@@ -6,10 +6,16 @@ import pytest
 from playwright.sync_api import Page
 
 from bankbot.control import ControlState, IllegalTransition, RunController
-from bankbot.control.state import HEARTBEAT_MISSES, NOBODY_CAME, OPERATOR_LOST
+from bankbot.control.state import (
+    HEARTBEAT_MISSES,
+    NOBODY_CAME,
+    OPERATOR_LOST,
+    SESSION_LOST,
+)
 from bankbot.evidence import read_events
+from bankbot.policy import Policy
 from bankbot.schemas import InterventionDecision
-from bankbot.surface import ObservationUnavailable
+from bankbot.surface import ObservationUnavailable, PlaywrightSurface, SessionLost
 from tests.control.conftest import a_request, current, wait_until
 
 FAST_HEARTBEAT_S = 0.05
@@ -245,3 +251,24 @@ def test_a_request_nobody_answers_is_aborted_as_nobody_came(
     assert decision is InterventionDecision.ABORT
     assert controller.abort_reason == NOBODY_CAME
     assert time.monotonic() - started >= FAST_HEARTBEAT_S
+
+
+def test_the_controller_records_session_lost_as_the_abort_reason(
+    controller: RunController, page: Page, policy: Policy, base_url: str
+) -> None:
+    page.goto(f"{base_url}/login")
+    surface = PlaywrightSurface(page, policy.mask_selectors)
+
+    def close_the_window(ms: int) -> None:
+        page.close()
+        surface.idle(ms)
+
+    controller._pump = close_the_window
+    with pytest.raises(SessionLost):
+        controller.request(a_request(controller.run_id))
+    assert current(controller) is ControlState.ABORTED
+    assert controller.abort_reason == SESSION_LOST
+    aborted = [
+        event for event in read_events(controller.run_dir) if event.get("state") == "aborted"
+    ]
+    assert aborted and aborted[0]["reason"] == SESSION_LOST

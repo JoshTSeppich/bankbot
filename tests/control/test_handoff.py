@@ -1,4 +1,8 @@
-"""End to end: replay pauses on the unknown dialog, a person dismisses it, replay finishes."""
+"""End to end: replay pauses on the unknown dialog and a person answers it.
+
+Two answers: dismiss the dialog and hand back, or close the window and end
+the run as session_lost.
+"""
 
 import threading
 from pathlib import Path
@@ -8,10 +12,11 @@ from fastapi.testclient import TestClient
 from playwright.sync_api import Page
 
 from bankbot.control import ControlState, RunController, RunRegistry, create_operator_app
+from bankbot.control.state import SESSION_LOST
 from bankbot.evidence import EvidenceWriter, RunDir, new_run_id, read_events
 from bankbot.policy import Policy
 from bankbot.replay import Replay
-from bankbot.schemas import Capability, Success
+from bankbot.schemas import Capability, Failure, Success
 from bankbot.surface import PlaywrightSurface
 from tests.control.conftest import current, wait_until
 from tests.replay.conftest import TEST_SECRETS, arm_faults
@@ -79,3 +84,62 @@ def test_a_person_can_take_over_dismiss_the_dialog_and_hand_back_to_a_successful
     ]
     assert any("OK" in str(e["description"]) for e in clicked)
     assert current(controller) is ControlState.FINISHED
+
+
+def test_closing_the_page_while_a_person_holds_control_ends_the_run_as_session_lost(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    arm_faults(base_url, unknown_dialog_at_step=2)
+    capability = Capability.model_validate(capability_json)
+    params = {"member_id": "M-100"}
+    run_dir = RunDir.create(tmp_path / "runs", new_run_id())
+    writer = EvidenceWriter(run_dir, policy.redactor(extra_values=params.values()))
+    surface = PlaywrightSurface(page, policy.mask_selectors)
+    person_should_close = threading.Event()
+
+    def pump(ms: int) -> None:
+        # The person closes the window instead of helping; it has to happen on this thread.
+        if person_should_close.is_set():
+            person_should_close.clear()
+            page.close()
+        surface.idle(ms)
+
+    controller = RunController(
+        run_dir, capability, sorted(params), surface=surface, writer=writer, pump=pump
+    )
+    registry = RunRegistry()
+    registry.add(controller)
+
+    def operator() -> None:
+        with TestClient(create_operator_app(registry)) as client:
+            wait_until(controller, ControlState.INTERVENTION_REQUESTED)
+            client.post(f"/operator/{controller.run_id}/take", follow_redirects=False)
+            person_should_close.set()
+            wait_until(controller, ControlState.ABORTED)
+
+    thread = threading.Thread(target=operator)
+    thread.start()
+    result = Replay(
+        capability,
+        params,
+        surface=surface,
+        policy=policy,
+        run_dir=run_dir,
+        writer=writer,
+        base_url=base_url,
+        secrets=TEST_SECRETS,
+        escalation=controller,
+        step_timeout_ms=1500,
+    ).run()
+    thread.join()
+    controller.finish(result.kind)
+
+    assert isinstance(result, Failure)
+    assert result.step_id == "submit_search"
+    assert result.observed.startswith("session_lost")
+    assert result.intervention is not None, "the ask a person never answered"
+    assert result.intervention.step_id == "submit_search"
+    assert result.evidence.screenshot is None
+    assert controller.abort_reason == SESSION_LOST
+    events = [event["event"] for event in read_events(run_dir)]
+    assert events[-1] == "run_finished"

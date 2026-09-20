@@ -17,7 +17,10 @@ HEARTBEAT_EVERY_S seconds. HEARTBEAT_MISSES missed pings in a row and the
 engine aborts the run with reason OPERATOR_LOST rather than hold a bank
 session open for nobody. Before anyone has taken control the same rule
 applies with a longer clock: ANSWER_WITHIN_S with no one arriving aborts
-with reason NOBODY_CAME.
+with reason NOBODY_CAME. The third way out of the wait is the application
+itself going away, which arrives as SessionLost from the pump: the run is
+aborted with reason SESSION_LOST and the error travels on, because there is
+no browser left to hand back to.
 
 Does not own: the pages a person sees (control/operator.py) or the rules
 that decide a request is needed (replay/).
@@ -33,7 +36,7 @@ from enum import StrEnum
 
 from bankbot.evidence import Event, EvidenceWriter, RunDir
 from bankbot.schemas import Capability, InterventionDecision, InterventionRequest
-from bankbot.surface import HumanAction, ObservationUnavailable, Surface
+from bankbot.surface import HumanAction, ObservationUnavailable, SessionLost, Surface
 
 IDLE_MS = 200
 LIVE_SCREENSHOT_EVERY_S = 1.0
@@ -44,6 +47,7 @@ HEARTBEAT_MISSES = 3
 ANSWER_WITHIN_S = 15 * 60.0
 OPERATOR_LOST = "operator_lost"
 NOBODY_CAME = "nobody_came"
+SESSION_LOST = "session_lost"
 OPERATOR_CHOSE = "operator"
 
 
@@ -208,6 +212,16 @@ class RunController:
     # --- private ---------------------------------------------------------
 
     def _wait_for_decision(self) -> InterventionDecision:
+        try:
+            return self._pump_until_answered()
+        except SessionLost:
+            # The browser went away while a person had it. Recording the abort is what
+            # takes the run off the operator's queue; the error goes on to replay, which
+            # is the only thing that can end the run.
+            self.abort(SESSION_LOST)
+            raise
+
+    def _pump_until_answered(self) -> InterventionDecision:
         # The picture comes before the answer check, so the operator page always
         # has the page as the engine left it, even if a person answers at once.
         last_screenshot: float | None = None

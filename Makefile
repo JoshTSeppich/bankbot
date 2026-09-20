@@ -4,7 +4,7 @@ CAP      ?= evidence/01-discovery/capability.json
 CLI       = uv run python -m bankbot.cli
 EVIDENCE  = --runs-dir evidence --keep-trace
 
-.PHONY: test lint discover replay replay-notfound replay-expiry replay-dialog replay-variant-b \
+.PHONY: test lint discover replay replay-5 replay-notfound replay-expiry replay-dialog replay-variant-b \
         operator demo verify-evidence \
         evidence-01 evidence-02 evidence-03 evidence-04 evidence-05 evidence-06 evidence-07
 
@@ -32,6 +32,11 @@ discover: .env
 # The rest never touch a model. They run the compiled capability.
 replay: .env
 	$(CLI) replay $(CAP) --param member_id=M-100
+
+# The determinism claim run rather than asserted: five fresh browsers, one
+# hash printed five times. evidence/02-replay-success* is a recorded instance.
+replay-5: .env
+	$(CLI) replay $(CAP) --param member_id=M-100 --times 5
 
 replay-notfound: .env
 	$(CLI) replay $(CAP) --param member_id=M-999

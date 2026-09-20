@@ -2,7 +2,7 @@
 
 [![ci](https://github.com/JoshTSeppich/bankbot/actions/workflows/ci.yml/badge.svg)](https://github.com/JoshTSeppich/bankbot/actions/workflows/ci.yml)
 
-Record a browser workflow once with an LLM driving, then replay it without one. The recording is a typed artifact that names each control the way a person sees it, so it can be reviewed, versioned and rerun against the same app. This is my take-home submission for interface.ai; the write-up is in REPORT.md.
+Record a browser workflow once with an LLM driving, then replay it without one. The recording is a typed artifact that names each control the way a person sees it, so it can be reviewed, versioned and rerun against the same app. Replay never imports the model SDK, so a captured workflow costs a browser rather than tokens.
 
 ## Run
 
@@ -29,6 +29,7 @@ Replay, without the key. The capability is executed with no model in the loop. T
 
 ```
 make replay                 # success, prints outputs and the event-sequence hash
+make replay-5               # five fresh browsers, one hash printed five times
 make replay-notfound        # member M-999: Outcome member_not_found, not a failure
 make replay-expiry          # session expires mid-run: recovery, then success
 make replay-variant-b       # the second tenant's build: drift_warning, variant_mismatch, success
@@ -49,7 +50,7 @@ Nothing else is mocked. The discovery run in `evidence/01-discovery` is a real m
 
 ## Where to read more
 
-- REPORT.md: the write-up under the seven headings from the brief.
+- REPORT.md: the write-up, under the seven headings of the interface.ai brief this started as.
 - docs/adr/: the six decisions the design rests on, with what I rejected and why.
 - docs/schema/capability.schema.json: the artifact contract.
 - evidence/: seven runs, one per condition the brief names, with logs, screenshots and traces.

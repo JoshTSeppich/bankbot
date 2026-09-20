@@ -4,6 +4,8 @@
 # use the versions pinned in uv.lock rather than a second copy managed by
 # pre-commit. They run over the whole package (not just staged files) whenever
 # a Python file is staged, because mypy and pytest only mean something whole.
+default_install_hook_types: [pre-commit, commit-msg]
+
 repos:
   - repo: local
     hooks:
@@ -31,6 +33,18 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      # CLAUDE.md calls a 72-character subject non-negotiable and fifteen
+      # earlier subjects ran past it. pygrep --negate fails the commit when the
+      # message does NOT match, so the pattern has to accept the whole subject
+      # line: a length lookahead that stops at the first newline, then the
+      # Conventional Commits shape. Body lines are never examined.
+      - id: commit-subject
+        name: conventional subject, 72 characters at most
+        language: pygrep
+        entry: '\A(?=[^\n]{1,72}(\n|\Z))(feat|fix|refactor|test|docs|chore|evidence)(\([a-z/_-]+\))?: \S'
+        args: [--multiline, --negate]
+        stages: [commit-msg]
 
   # Blocks the commit if a staged change contains anything that looks like a
   # secret (API keys, tokens). Scans staged content only, so unstaged scratch

@@ -14,6 +14,7 @@ Governed by ADR-0002 (locator strategy: the model targets by role and name).
 
 import base64
 import os
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
@@ -36,6 +37,7 @@ MAX_OUTPUT_TOKENS = 1024
 # An org-scoped key must name a workspace; a workspace-scoped key must not.
 WORKSPACE_HEADER = "anthropic-workspace-id"
 WORKSPACE_ENV = "ANTHROPIC_WORKSPACE_ID"
+API_KEY_ENV = "ANTHROPIC_API_KEY"
 
 
 class Decided(StrictModel):
@@ -114,8 +116,24 @@ class ModelGaveMalformedAction(Exception):
     """The tool input did not fit ProposedAction. The tool is strict, so this is the API's bug."""
 
 
+class ModelKeyMissing(Exception):
+    """There is no usable Anthropic key in the environment, so discovery cannot run."""
+
+
+def check_model_key(environment: Mapping[str, str]) -> None:
+    """Say a key is missing here, not one HTTP request into a run that already opened a browser.
+
+    Blank counts as missing. `.env.example` ships `ANTHROPIC_API_KEY=` with
+    nothing after it, so that is what a fresh clone has, and the SDK carries
+    an empty string all the way to the first request before it complains.
+    """
+    if not environment.get(API_KEY_ENV, "").strip():
+        raise ModelKeyMissing(f"{API_KEY_ENV} is not set; only discovery needs it")
+
+
 def make_client() -> anthropic.Anthropic:
     """Build the client from the environment; the workspace header only when the key needs it."""
+    check_model_key(os.environ)
     workspace_id = os.environ.get(WORKSPACE_ENV)
     headers = {WORKSPACE_HEADER: workspace_id} if workspace_id else None
     return anthropic.Anthropic(default_headers=headers)

@@ -1,14 +1,20 @@
-"""The command line: discover, replay, operator, verify-evidence. Wiring only.
+"""The command line: discover, replay, operator, verify-evidence. Wiring, and one judgement.
 
-Owns: argument parsing, starting the demo app in-process when no base URL is
-given, opening the browser, starting the operator pages when a person can
-see the browser (HEADED=1), and printing the result. Nothing here decides
-anything a test would need to cover, which is why it has none of its own.
+Owns: argument parsing, the pre-flight that decides whether a run may start,
+starting the demo app in-process when no base URL is given, opening the
+browser, starting the operator pages when a person can see the browser
+(HEADED=1), and printing the result.
 
-Does not own: any logic. discover/, compile/, replay/ and control/ do the
-work; this file passes them to each other.
+The one thing this file decides is whose fault a stop is. A condition of the
+world the caller can fix is one line on stderr and exit 2; a run that started
+and ended badly is exit 1; anything else is a bug in bankbot and keeps its
+traceback. tests/test_cli.py covers that judgement and nothing else here.
 
-Governed by ADR-0006 (the browser is opened through the surface, never here).
+Does not own: the work. discover/, compile/, replay/ and control/ do it;
+this file passes them to each other.
+
+Governed by ADR-0006 (the browser is opened through the surface, never here)
+and ADR-0003 (errors are named after the condition).
 """
 
 import argparse
@@ -22,14 +28,32 @@ from pathlib import Path
 
 import httpx
 from dotenv import load_dotenv
+from pydantic import ValidationError
 
 from bankbot.compile import compile_capability
 from bankbot.control import RunController, RunRegistry, create_operator_app
-from bankbot.discover import ClaudeDecider, Discovery, StopReason, load_goal_spec
-from bankbot.evidence import EvidenceWriter, RunDir, event_sequence_hash, new_run_id, read_events
+from bankbot.discover import (
+    ClaudeDecider,
+    Discovery,
+    DiscoveryCouldNotStart,
+    ModelKeyMissing,
+    StopReason,
+    check_model_key,
+    load_goal_spec,
+)
+from bankbot.evidence import (
+    EvidenceWriter,
+    RunDir,
+    RunDirectoryExists,
+    RunDirectoryMissing,
+    event_sequence_hash,
+    new_run_id,
+    read_events,
+)
 from bankbot.evidence.verify import sequence_hashes, verify_evidence
-from bankbot.policy import load_policy
-from bankbot.replay import Replay
+from bankbot.policy import PolicyFileInvalid, PolicyFileMissing, load_policy
+from bankbot.replay import ParamInvalid, ParamMissing, Replay, SecretMissing
+from bankbot.replay.values import check_params, check_secrets
 from bankbot.schemas import REPLAY_RESULT_ADAPTER, Capability, Success
 from bankbot.surface import PlaywrightSurface, headed_requested, open_page
 from bankbot.target import create_app, start_server
@@ -38,21 +62,96 @@ GOALS_DIR = Path(__file__).parent / "discover" / "goals"
 DEFAULT_SPEC = GOALS_DIR / "lookup_savings_balance.json"
 DEFAULT_RUNS_DIR = Path("runs")
 DEFAULT_EVIDENCE_DIR = Path("evidence")
+RECORDED_CAPABILITY = DEFAULT_EVIDENCE_DIR / "01-discovery" / "capability.json"
 OPERATOR_PORT = 8765
 VARIANT_PREFIXES = {"a": "", "b": "/b"}
+TARGET_PROBE_TIMEOUT_S = 2.0
+EXIT_OK = 0
+EXIT_RUN_FAILED = 1
+EXIT_CALLER_ERROR = 2
+
+
+class CapabilityFileMissing(Exception):
+    """There is no artifact file where the caller pointed."""
+
+
+class CapabilityFileInvalid(Exception):
+    """The artifact file is there but does not validate as a Capability."""
+
+
+class TargetUnreachable(Exception):
+    """Nothing answered at the --base-url the caller gave."""
+
+
+class OptionMalformed(Exception):
+    """A --param or --fault was not written as NAME=VALUE."""
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Entry point for `python -m bankbot.cli`; returns the process exit code."""
+    """Entry point for `python -m bankbot.cli`; returns the process exit code.
+
+    The conditions caught below are the ones a caller causes: a typo, a
+    missing variable, a port with nothing behind it. Each of those is worth
+    one line and no more.
+    """
     load_dotenv()
     args = build_parser().parse_args(argv)
-    if args.command == "discover":
-        return _discover(args)
-    if args.command == "operator":
-        return _operator(args)
-    if args.command == "verify-evidence":
-        return _verify(args)
-    return _replay(args)
+    try:
+        if args.command == "discover":
+            return _discover(args)
+        if args.command == "operator":
+            return _operator(args)
+        if args.command == "verify-evidence":
+            return _verify(args)
+        return _replay(args)
+    except (
+        CapabilityFileInvalid,
+        CapabilityFileMissing,
+        ModelKeyMissing,
+        OptionMalformed,
+        ParamInvalid,
+        ParamMissing,
+        PolicyFileInvalid,
+        PolicyFileMissing,
+        RunDirectoryExists,
+        RunDirectoryMissing,
+        SecretMissing,
+        TargetUnreachable,
+    ) as condition:
+        print(f"error: {condition}", file=sys.stderr)
+        hint = _hint_for(condition)
+        if hint is not None:
+            print(f"hint: {hint}", file=sys.stderr)
+        return EXIT_CALLER_ERROR
+    except DiscoveryCouldNotStart as condition:
+        # The run started and could not get going, which is a failed run and
+        # not a rejected command; the run directory holds the evidence.
+        print(f"error: {condition}", file=sys.stderr)
+        return EXIT_RUN_FAILED
+    # There is deliberately no catch-all. Anything not named above is a bug in
+    # bankbot rather than a condition of the world, and a bug is worth a
+    # traceback with the line number in it.
+
+
+def _hint_for(condition: Exception) -> str | None:
+    """A second line only where the next thing to type is obvious.
+
+    A hint that guesses wrong sends a caller down the wrong path, so
+    conditions without one fix (a bad policy file, say) get none.
+    """
+    if isinstance(condition, ParamMissing | ParamInvalid | OptionMalformed):
+        return "inputs are passed as --param NAME=VALUE"
+    if isinstance(condition, SecretMissing):
+        return "copy .env.example to .env and fill in the value"
+    if isinstance(condition, ModelKeyMissing):
+        return f"replay needs no key: python -m bankbot.cli replay {RECORDED_CAPABILITY}"
+    if isinstance(condition, CapabilityFileMissing):
+        return f"the recorded capability is at {RECORDED_CAPABILITY}"
+    if isinstance(condition, RunDirectoryExists):
+        return "pass a different --run-id, or delete that directory first"
+    if isinstance(condition, TargetUnreachable):
+        return "drop --base-url and bankbot starts the demo app itself"
+    return None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,7 +199,14 @@ def _discover(args: argparse.Namespace) -> int:
     if args.goal:
         spec = spec.model_copy(update={"goal": args.goal})
     params = _parse_pairs(args.param)
+    # Everything a caller can get wrong is checked before the run directory
+    # exists and before a browser opens, so a rejected command leaves no
+    # empty directory behind and costs no model call.
+    check_params(spec.inputs, params)
+    check_secrets([step for recovery in spec.recoveries for step in recovery.steps], os.environ)
+    check_model_key(os.environ)
     policy = load_policy()
+    _check_target_reachable(args.base_url)
     run_dir = RunDir.create(args.runs_dir, args.run_id or new_run_id())
     writer = EvidenceWriter(run_dir, policy.redactor(extra_values=params.values()))
     with running_target(args.base_url) as base_url, open_page() as page:
@@ -118,21 +224,25 @@ def _discover(args: argparse.Namespace) -> int:
     print(f"tokens: {transcript.input_tokens} in, {transcript.output_tokens} out")
     print(f"run directory: {run_dir.path}")
     if transcript.stop_reason is not StopReason.DONE:
-        return 1
+        return EXIT_RUN_FAILED
     capability = compile_capability(transcript, spec, secrets=os.environ)
     writer.save_model("capability", capability)
     print(f"capability: {run_dir.capability_path} ({len(capability.steps)} steps)")
-    return 0
+    return EXIT_OK
 
 
 def _replay(args: argparse.Namespace) -> int:
-    capability = Capability.model_validate_json(args.capability.read_text())
+    capability = _load_capability(args.capability)
     params = _parse_pairs(args.param)
     faults = _parse_pairs(args.fault)
+    check_params(capability.inputs, params)
+    recovery_steps = [step for recovery in capability.recoveries for step in recovery.steps]
+    check_secrets(capability.steps + recovery_steps, os.environ)
     policy = load_policy()
+    _check_target_reachable(args.base_url)
     registry = RunRegistry()
     operator_started = False
-    exit_code = 0
+    exit_code = EXIT_OK
     with running_target(args.base_url) as target:
         base_url = target + VARIANT_PREFIXES[args.variant]
         for run_id in _run_ids(args.run_id or new_run_id(), args.times):
@@ -174,7 +284,7 @@ def _replay(args: argparse.Namespace) -> int:
             print(f"event sequence: {event_sequence_hash(read_events(run_dir))}")
             print(f"run directory: {run_dir.path}", file=sys.stderr)
             if not (isinstance(result, Success) or result.kind == "outcome"):
-                exit_code = 1
+                exit_code = EXIT_RUN_FAILED
     return exit_code
 
 
@@ -191,7 +301,7 @@ def _verify(args: argparse.Namespace) -> int:
     for problem in problems:
         print(problem, file=sys.stderr)
     print(f"{len(problems)} problems in {args.root}", file=sys.stderr)
-    return 1 if problems else 0
+    return EXIT_RUN_FAILED if problems else EXIT_OK
 
 
 def _operator(args: argparse.Namespace) -> int:
@@ -203,7 +313,41 @@ def _operator(args: argparse.Namespace) -> int:
             time.sleep(1)
     except KeyboardInterrupt:
         handle.stop()
-    return 0
+    return EXIT_OK
+
+
+def _load_capability(path: Path) -> Capability:
+    """Read the artifact before anything else, so a wrong path costs a line and not a run."""
+    try:
+        text = path.read_text()
+    except OSError as error:
+        raise CapabilityFileMissing(
+            f"cannot read the capability at {path}: {error.strerror}"
+        ) from error
+    try:
+        return Capability.model_validate_json(text)
+    except ValidationError as error:
+        # The first problem only: a caller fixes one field at a time, and the
+        # whole pydantic report is pages long for a file that is not JSON.
+        problem = error.errors()[0]
+        where = ".".join(str(part) for part in problem["loc"])
+        detail = f"{where}: {problem['msg']}" if where else str(problem["msg"])
+        raise CapabilityFileInvalid(f"{path} is not a capability: {detail}") from error
+
+
+def _check_target_reachable(base_url: str | None) -> None:
+    """Ask the port a question before the run, because a dead port is not a step failure.
+
+    Nothing to probe without --base-url: running_target starts the demo app
+    in this process and that cannot be unreachable. Any answer at all
+    counts, including a 404; the question is whether someone is there.
+    """
+    if not base_url:
+        return
+    try:
+        httpx.get(base_url, timeout=TARGET_PROBE_TIMEOUT_S)
+    except (httpx.InvalidURL, httpx.RequestError) as error:
+        raise TargetUnreachable(f"nothing answered at {base_url}: {error}") from error
 
 
 @contextmanager
@@ -229,7 +373,9 @@ def _parse_pairs(pairs: Sequence[str]) -> dict[str, str]:
     values: dict[str, str] = {}
     for pair in pairs:
         if "=" not in pair:
-            raise SystemExit(f"expected NAME=VALUE, got {pair!r}")
+            # SystemExit here used to end the process at 1, which is the code
+            # for a run that failed. Nothing has run yet, so it is a 2.
+            raise OptionMalformed(f"expected NAME=VALUE, got {pair!r}")
         name, value = pair.split("=", 1)
         values[name] = value
     return values

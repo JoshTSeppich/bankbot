@@ -47,10 +47,17 @@ def check_params(inputs: Mapping[str, InputSpec], params: Mapping[str, str]) -> 
     for name, spec in inputs.items():
         if name not in params:
             if spec.required:
-                raise ParamMissing(f"input {name!r} is required")
+                raise ParamMissing(f"input {name!r} is required{_example(spec)}")
             continue
         if spec.pattern is not None and not re.fullmatch(spec.pattern, params[name]):
-            raise ParamInvalid(f"input {name!r} does not match {spec.pattern!r}")
+            raise ParamInvalid(f"input {name!r} does not match {spec.pattern!r}{_example(spec)}")
+
+
+def _example(spec: InputSpec) -> str:
+    # The artifact carries an example for this moment. A caller who got the
+    # shape wrong needs a value that works, not only the regex that rejected
+    # the one they typed.
+    return "" if spec.example is None else f" (for example {spec.example!r})"
 
 
 def check_secrets(steps: Sequence[Step], secrets: Mapping[str, str]) -> None:

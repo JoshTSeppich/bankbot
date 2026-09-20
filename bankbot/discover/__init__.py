@@ -13,7 +13,13 @@ ADR-0002 (locator strategy).
 """
 
 from bankbot.discover.loop import Discovery, DiscoveryCouldNotStart
-from bankbot.discover.model import ClaudeDecider, Decided, Decider
+from bankbot.discover.model import (
+    ClaudeDecider,
+    Decided,
+    Decider,
+    ModelKeyMissing,
+    check_model_key,
+)
 from bankbot.discover.spec import GoalSpec, load_goal_spec
 from bankbot.discover.tools import ProposedAction, ToolAction
 from bankbot.discover.transcript import StopReason, Transcript, TranscriptStep
@@ -25,10 +31,12 @@ __all__ = [
     "Discovery",
     "DiscoveryCouldNotStart",
     "GoalSpec",
+    "ModelKeyMissing",
     "ProposedAction",
     "StopReason",
     "ToolAction",
     "Transcript",
     "TranscriptStep",
+    "check_model_key",
     "load_goal_spec",
 ]

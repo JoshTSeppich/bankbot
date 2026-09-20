@@ -28,6 +28,7 @@ from bankbot.surface.types import (
     Observation,
     ObservationUnavailable,
     ReadResult,
+    SessionLost,
     Surface,
     TargetNotFound,
 )
@@ -44,6 +45,7 @@ __all__ = [
     "ObservationUnavailable",
     "PlaywrightSurface",
     "ReadResult",
+    "SessionLost",
     "Surface",
     "TargetNotFound",
     "distance",

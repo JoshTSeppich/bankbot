@@ -24,7 +24,7 @@ from bankbot.surface.facts import element_facts
 from bankbot.surface.fingerprint import screen_fingerprint
 from bankbot.surface.frames import walk_frames
 from bankbot.surface.human import HumanWatcher, OnHumanAction
-from bankbot.surface.locators import bbox_centre, first_line, resolve_target
+from bankbot.surface.locators import Resolved, bbox_centre, first_line, resolve_target
 from bankbot.surface.types import (
     ActionFailed,
     ActResult,
@@ -34,6 +34,7 @@ from bankbot.surface.types import (
     Observation,
     ObservationUnavailable,
     ReadResult,
+    SessionLost,
     TargetNotFound,
 )
 
@@ -71,6 +72,7 @@ class PlaywrightSurface:
         try:
             return self._observe(screenshot_to)
         except PlaywrightError as error:
+            self._raise_if_gone(error)
             raise ObservationUnavailable(first_line(error)) from error
 
     def _observe(self, screenshot_to: Path | None) -> Observation:
@@ -94,11 +96,11 @@ class PlaywrightSurface:
 
     def resolve(self, target: TargetRef, timeout_ms: int = 2000) -> int:
         """Find the control and return only the winning index; the handle stays in here."""
-        return resolve_target(self._page, target, timeout_ms).index
+        return self._resolve(target, timeout_ms).index
 
     def inspect(self, target: TargetRef, timeout_ms: int = 2000) -> Inspection:
         """Resolve and describe; the element is untouched."""
-        resolved = resolve_target(self._page, target, timeout_ms)
+        resolved = self._resolve(target, timeout_ms)
         element = None
         if resolved.locator is not None:
             element = element_facts(resolved.locator, target.frame_path)
@@ -124,7 +126,7 @@ class PlaywrightSurface:
         if action is not ActionType.CLICK and value is None:
             raise ValueError(f"{action.value} needs a value")
 
-        resolved = resolve_target(self._page, target, timeout_ms)
+        resolved = self._resolve(target, timeout_ms)
         # Facts come first: a click on a submit button navigates away, and afterwards there is
         # no element left to describe.
         element = None
@@ -136,6 +138,7 @@ class PlaywrightSurface:
             elif resolved.bbox is not None:
                 self._act_on_point(action, resolved.bbox, value)
         except PlaywrightError as error:
+            self._raise_if_gone(error)
             raise ActionFailed(
                 action=action.value, reason=first_line(error), observed=self._page.url
             ) from error
@@ -143,7 +146,7 @@ class PlaywrightSurface:
 
     def read(self, target: TargetRef, timeout_ms: int = 2000) -> ReadResult:
         """Resolve, then take the element's visible text as the page shows it."""
-        resolved = resolve_target(self._page, target, timeout_ms)
+        resolved = self._resolve(target, timeout_ms)
         if resolved.locator is None:
             # A point can be clicked but not read: there is no element behind it to take
             # text from. Reported the way any unresolved target is, not as a crash.
@@ -155,6 +158,7 @@ class PlaywrightSurface:
             text = resolved.locator.inner_text(timeout=timeout_ms).strip()
             element = element_facts(resolved.locator, target.frame_path)
         except PlaywrightError as error:
+            self._raise_if_gone(error)
             raise ActionFailed(
                 action="read", reason=first_line(error), observed=self._page.url
             ) from error
@@ -170,7 +174,7 @@ class PlaywrightSurface:
                 return False
             # Not time.sleep: the sync client only hears about navigations while it is talking
             # to the browser, so a plain sleep would leave page.url stale for the whole wait.
-            self._page.wait_for_timeout(POLL_INTERVAL_MS)
+            self.idle(POLL_INTERVAL_MS)
 
     def fingerprint(self) -> AppFingerprint:
         """Title, the application-version meta tag, and the current screen's tab sequence."""
@@ -189,12 +193,25 @@ class PlaywrightSurface:
         self._page.context.tracing.start(screenshots=True, snapshots=True)
 
     def stop_trace(self, path: Path) -> None:
-        """Write trace.zip where the run directory says."""
+        """Write trace.zip where the run directory says, or nothing when the browser is gone.
+
+        Replay stops the trace in a finally. A closed browser has no trace
+        left to write, and raising about it here would bury whatever ended
+        the run.
+        """
+        if self._page.is_closed():
+            return
         self._page.context.tracing.stop(path=str(path))
 
     def idle(self, ms: int) -> None:
         """Wait inside Playwright so events keep flowing; see Surface.idle for why not sleep."""
-        self._page.wait_for_timeout(ms)
+        try:
+            self._page.wait_for_timeout(ms)
+        except PlaywrightError as error:
+            self._raise_if_gone(error)
+            # A wait that fails on a page that is still open is a bug in bankbot, not a
+            # condition of the world, so it travels as itself.
+            raise
 
     def watch_human(self, on_action: OnHumanAction) -> None:
         """Hand the page to a person and keep the record going."""
@@ -206,12 +223,36 @@ class PlaywrightSurface:
 
     # --- private ------------------------------------------------------------
 
+    def _resolve(self, target: TargetRef, timeout_ms: int) -> Resolved:
+        """Resolve a target, but call a closed browser what it is.
+
+        Once the page is gone every candidate fails to match, so resolution
+        reports a control that moved. That answer sends whoever reads the
+        run looking for a locator in a browser that is not there any more.
+        """
+        try:
+            return resolve_target(self._page, target, timeout_ms)
+        except (TargetNotFound, FrameNotFound, PlaywrightError) as error:
+            self._raise_if_gone(error)
+            raise
+
+    def _raise_if_gone(self, error: Exception) -> None:
+        """Separate "the app went away" from "the action went wrong", which is one question.
+
+        Playwright fails every call once the page is closed, and each
+        failure wears the shape of whatever was being attempted.
+        is_closed() is the only thing that tells the two apart.
+        """
+        if self._page.is_closed():
+            raise SessionLost(first_line(error)) from error
+
     def _navigate(self, url: str, timeout_ms: int) -> None:
         # Artifacts carry paths, not hosts, so the same capability runs against any deployment.
         absolute = urljoin(self._page.url, url)
         try:
             self._page.goto(absolute, wait_until="load", timeout=timeout_ms)
         except PlaywrightError as error:
+            self._raise_if_gone(error)
             raise ActionFailed(
                 action=ActionType.NAVIGATE.value, reason=first_line(error), observed=self._page.url
             ) from error

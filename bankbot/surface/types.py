@@ -112,6 +112,18 @@ class HumanAction(StrictModel):
     url: str
 
 
+class SessionLost(Exception):
+    """The application the surface was driving is gone: the page or its context is closed.
+
+    Every Playwright call fails once that happens, and each one fails in the
+    shape of whatever the caller was attempting, so a closed browser reads
+    as a control that moved or a page mid-navigation. Naming the condition
+    is what lets a run end as a result instead of hunting for a locator that
+    no browser will ever show again. A desktop surface (ADR-0006) raises the
+    same error when the person quits the application.
+    """
+
+
 class ObservationUnavailable(Exception):
     """The page could not be snapshotted right now, usually because it is mid-navigation.
 

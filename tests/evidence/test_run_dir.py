@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from bankbot.evidence import RunDir, RunDirectoryExists, RunDirectoryMissing, new_run_id
+from bankbot.policy import Redactor
 
-RUN_ID_SHAPE = re.compile(r"^\d{8}-\d{6}-[0-9a-f]{4}$")
+RUN_ID_SHAPE = re.compile(r"^\d{8}T\d{6}-[0-9a-f]{4}$")
 
 
 def test_run_ids_sort_chronologically() -> None:
@@ -46,3 +47,8 @@ def test_opening_an_existing_run_dir_gives_the_same_paths(tmp_path: Path) -> Non
 def test_opening_a_missing_run_dir_is_a_named_error(tmp_path: Path) -> None:
     with pytest.raises(RunDirectoryMissing):
         RunDir.open(tmp_path / "nope")
+
+
+def test_a_default_run_id_survives_the_redactor_unchanged() -> None:
+    run_id = new_run_id()
+    assert Redactor([]).text(run_id) == run_id

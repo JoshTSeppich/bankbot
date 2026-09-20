@@ -22,7 +22,9 @@ TRANSCRIPT_FILE = "transcript.json"
 CAPABILITY_FILE = "capability.json"
 TRACE_FILE = "trace.zip"
 SCREENSHOTS_DIR = "screenshots"
-RUN_ID_TIME_FORMAT = "%Y%m%d-%H%M%S"
+# The T is load-bearing. With a dash there, a run id reads as a grouped
+# card number to the redactor and a run reports its own id as [REDACTED].
+RUN_ID_TIME_FORMAT = "%Y%m%dT%H%M%S"
 
 
 class RunDirectoryExists(Exception):

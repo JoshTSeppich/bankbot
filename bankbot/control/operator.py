@@ -128,7 +128,9 @@ def _routes(registry: RunRegistry, runs_dir: Path | None, templates: Jinja2Templ
             raise HTTPException(status_code=404, detail="no screenshot yet")
         return FileResponse(path, headers={"Cache-Control": "no-store"})
 
-    @router.get("/{run_id}/files/{name}")
+    # {name:path}, not {name}: the screenshots a finished run links to live in
+    # a subdirectory, and a plain path parameter stops at the first slash.
+    @router.get("/{run_id}/files/{name:path}")
     def run_file(run_id: str, name: str) -> Response:
         run_dir = _run_dir(registry, runs_dir, run_id)
         path = (run_dir.path / name).resolve()

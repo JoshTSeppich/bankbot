@@ -1,10 +1,12 @@
 import threading
 import time
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from playwright.sync_api import Page
 
-from bankbot.control import ControlState, RunController
+from bankbot.control import ControlState, RunController, RunRegistry, create_operator_app
+from bankbot.evidence import RunDir
 from bankbot.schemas import InterventionDecision
 from tests.control.conftest import a_request, current, wait_until
 
@@ -96,3 +98,28 @@ def test_unknown_run_is_a_404_and_files_outside_the_run_are_refused(
     assert client.get("/operator/nope").status_code == 404
     assert client.get(f"/operator/{controller.run_id}/files/../../policy.yaml").status_code == 404
     assert client.get(f"/operator/{controller.run_id}/live.png").status_code == 404
+
+
+FINISHED_RUN = "20260919T080000-abcd"
+
+
+def finished_run_client(runs_dir: Path) -> TestClient:
+    """The operator app over a run that only exists on disk: no controller, no registry entry."""
+    run = RunDir.create(root=runs_dir, run_id=FINISHED_RUN)
+    run.screenshot_path("final").write_bytes(b"\x89PNG\r\n\x1a\n")
+    return TestClient(create_operator_app(RunRegistry(), runs_dir))
+
+
+def test_a_finished_run_page_serves_its_screenshots(tmp_path: Path) -> None:
+    with finished_run_client(tmp_path / "runs") as client:
+        response = client.get(f"/operator/{FINISHED_RUN}/files/screenshots/final.png")
+    assert response.status_code == 200
+
+
+def test_a_nested_file_path_cannot_leave_the_run_directory(tmp_path: Path) -> None:
+    # The dots are percent-encoded because httpx collapses a literal ../ before
+    # it sends, and then the guard under test never sees the path.
+    escape = f"/operator/{FINISHED_RUN}/files/screenshots/%2e%2e/%2e%2e/%2e%2e/policy.yaml"
+    with finished_run_client(tmp_path / "runs") as client:
+        response = client.get(escape)
+    assert response.status_code == 404

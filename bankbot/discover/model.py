@@ -12,25 +12,29 @@ Does not own: what to do with the action (discover/loop.py).
 Governed by ADR-0002 (locator strategy: the model targets by role and name).
 """
 
+from __future__ import annotations
+
 import base64
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-import anthropic
-from anthropic.types import (
-    ImageBlockParam,
-    MessageParam,
-    TextBlockParam,
-    ToolResultBlockParam,
-    ToolUseBlockParam,
-)
 from pydantic import ValidationError
 
 from bankbot.discover.tools import ACT_TOOL, ProposedAction
 from bankbot.schemas import StrictModel
 from bankbot.surface import Observation
+
+if TYPE_CHECKING:
+    import anthropic
+    from anthropic.types import (
+        ImageBlockParam,
+        MessageParam,
+        TextBlockParam,
+        ToolResultBlockParam,
+        ToolUseBlockParam,
+    )
 
 DEFAULT_MODEL = "claude-opus-4-8"
 MAX_OUTPUT_TOKENS = 1024
@@ -133,6 +137,11 @@ def check_model_key(environment: Mapping[str, str]) -> None:
 
 def make_client() -> anthropic.Anthropic:
     """Build the client from the environment; the workspace header only when the key needs it."""
+    # The SDK is imported here and nowhere else at module scope. REPORT.md says
+    # a replay process never loads it, and replay reaches this module through
+    # bankbot.discover, so that sentence is now a tested fact rather than a claim.
+    import anthropic
+
     check_model_key(os.environ)
     workspace_id = os.environ.get(WORKSPACE_ENV)
     headers = {WORKSPACE_HEADER: workspace_id} if workspace_id else None

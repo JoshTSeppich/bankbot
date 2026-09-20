@@ -11,12 +11,16 @@ answer (discover/loop.py).
 Governed by ADR-0002 (locator strategy: reasoning is recorded per action).
 """
 
-from enum import StrEnum
+from __future__ import annotations
 
-from anthropic.types import ToolParam
+from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from bankbot.discover.spec import GoalSpec
 from bankbot.schemas import StrictModel
+
+if TYPE_CHECKING:
+    from anthropic.types import ToolParam
 
 
 class ToolAction(StrEnum):

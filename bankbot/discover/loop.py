@@ -22,8 +22,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib.metadata import version
-
-from anthropic.types import MessageParam
+from typing import TYPE_CHECKING
 
 from bankbot.discover.model import (
     Decided,
@@ -60,6 +59,9 @@ from bankbot.surface import (
     Surface,
     TargetNotFound,
 )
+
+if TYPE_CHECKING:
+    from anthropic.types import MessageParam
 
 MAX_STEPS = 25
 MAX_SECONDS = 180.0

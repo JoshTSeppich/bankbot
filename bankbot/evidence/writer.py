@@ -2,13 +2,14 @@
 
 Owns: appending JSONL events, writing result/transcript/capability JSON, and
 the trace keep-or-delete decision's execution. Every byte that reaches disk
-here is redacted twice. First `redactor.record` walks the structure and
-masks string values. Then, after JSON serialisation, `redactor.text` masks
-the finished line. Two passes because they catch different things: the
-structural pass sees values before they are quoted and escaped, so it masks
-reliably; the text pass catches values that were not strings when the
-structural pass ran (Paths, enums, exceptions) and only became text during
-serialisation. Neither pass alone covers both.
+here is redacted: a kept trace through trace.py, everything else twice.
+First `redactor.record` walks the structure and masks string values. Then,
+after JSON serialisation, `redactor.text` masks the finished line. Two
+passes because they catch different things: the structural pass sees values
+before they are quoted and escaped, so it masks reliably; the text pass
+catches values that were not strings when the structural pass ran (Paths,
+enums, exceptions) and only became text during serialisation. Neither pass
+alone covers both.
 
 Does not own: what to redact (bankbot.policy.Redactor) or what any event
 means. The writer never inspects an event name.
@@ -25,6 +26,7 @@ from pydantic import BaseModel
 
 from bankbot.evidence.events import TIMESTAMP_FIELD, Event
 from bankbot.evidence.run_dir import RunDir
+from bankbot.evidence.trace import redact_trace
 from bankbot.schemas.result import REPLAY_RESULT_ADAPTER, ReplayResult
 
 
@@ -41,6 +43,10 @@ class Redacting(Protocol):
 
     def record(self, obj: object) -> object:
         """Mask secrets in every string value inside a nested dict/list structure."""
+        ...
+
+    def bytes(self, data: bytes) -> bytes:
+        """Mask secrets in the bytes of a file this codebase did not write."""
         ...
 
 
@@ -76,12 +82,18 @@ class EvidenceWriter:
         self._write_json(self._run.path / f"{name}.json", model.model_dump(mode="json"))
 
     def keep_trace(self, keep: bool) -> None:
-        """Delete trace.zip unless asked to keep it, and log the decision either way.
+        """Delete trace.zip unless asked to keep it, redact it if it stays, log either way.
 
+        A kept trace is redacted here rather than by its writer because
+        Playwright writes it, not this codebase, and a run directory may not
+        hold a file that never passed the redactor. A run that lost its
+        session writes no trace at all, so there is nothing to redact then.
         Logged even when nothing is deleted so a missing trace in the evidence
         directory is explained by the log, not left to guesswork.
         """
         existed = self._run.trace_path.exists()
+        if keep and existed:
+            redact_trace(self._run.trace_path, self._redactor, Path.home())
         if not keep and existed:
             self._run.trace_path.unlink()
         self.event(Event.TRACE, file=self._run.trace_path.name, kept=keep, existed=existed)

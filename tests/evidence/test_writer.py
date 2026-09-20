@@ -1,4 +1,5 @@
 import json
+import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,6 +26,16 @@ class FakeRedactor:
         if isinstance(obj, list):
             return [self.record(item) for item in obj]
         return obj
+
+    def bytes(self, data: bytes) -> bytes:
+        return data.replace(SECRET.encode(), b"[REDACTED]")
+
+
+def write_trace(path: Path) -> None:
+    """A trace.zip the writer can open: keep_trace(True) now rewrites the archive."""
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("trace.trace", json.dumps({"type": "context-options"}))
+        archive.writestr("resources/page@abc-1.jpeg", b"\xff\xd8\xff\xe0")
 
 
 class Note(StrictModel):
@@ -120,7 +131,7 @@ def test_events_are_flushed_immediately_so_a_crash_keeps_the_log(
 def test_keep_trace_false_deletes_the_trace_and_records_it(
     run: RunDir, writer: EvidenceWriter
 ) -> None:
-    run.trace_path.write_bytes(b"PK")
+    write_trace(run.trace_path)
     writer.keep_trace(False)
     assert not run.trace_path.exists()
     last = read_events(run)[-1]
@@ -132,10 +143,18 @@ def test_keep_trace_false_deletes_the_trace_and_records_it(
 def test_keep_trace_true_leaves_the_trace_and_records_it(
     run: RunDir, writer: EvidenceWriter
 ) -> None:
-    run.trace_path.write_bytes(b"PK")
+    write_trace(run.trace_path)
     writer.keep_trace(True)
     assert run.trace_path.exists()
     assert read_events(run)[-1]["kept"] is True
+
+
+def test_keep_trace_true_with_no_trace_on_disk_is_recorded_and_not_an_error(
+    run: RunDir, writer: EvidenceWriter
+) -> None:
+    writer.keep_trace(True)
+    assert not run.trace_path.exists()
+    assert read_events(run)[-1]["existed"] is False
 
 
 def test_read_events_returns_what_was_written_in_order(run: RunDir, writer: EvidenceWriter) -> None:

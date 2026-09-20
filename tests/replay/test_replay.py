@@ -1,4 +1,5 @@
 import json
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +20,7 @@ from bankbot.schemas import (
     WarningCode,
 )
 from bankbot.surface import screen_fingerprint
-from tests.replay.conftest import arm_faults, make_replay
+from tests.replay.conftest import TEST_SECRETS, arm_faults, make_replay
 
 
 class RecordingEscalation:
@@ -87,6 +88,35 @@ def test_replay_reports_member_not_found_as_outcome_not_failure(
     assert result.code == "member_not_found"
     assert run_dir.trace_path.exists(), "trace is kept on an outcome"
     assert result.evidence.trace == "trace.zip"
+
+
+def test_replay_keeps_a_trace_with_no_credential_in_it(
+    page: Page,
+    policy: Policy,
+    base_url: str,
+    tmp_path: Path,
+    capability_json: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Playwright writes trace.zip, not the evidence writer, and the login
+    # recovery types the password into it five different ways. The redactor
+    # reads the credential from the environment the way the CLI's .env supplies it.
+    monkeypatch.setenv("BANKBOT_PASSWORD", TEST_SECRETS["BANKBOT_PASSWORD"])
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-999"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    replay.run()
+    assert run_dir.trace_path.exists(), "trace is kept on an outcome"
+    with zipfile.ZipFile(run_dir.trace_path) as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+    assert members, "an empty archive would prove nothing"
+    secret = TEST_SECRETS["BANKBOT_PASSWORD"].encode()
+    assert [name for name, data in members.items() if secret in data] == []
 
 
 def test_session_expiry_mid_run_is_recovered_and_the_run_still_succeeds(

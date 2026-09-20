@@ -82,3 +82,20 @@ def test_record_redaction_does_not_mutate_the_input() -> None:
     before = copy.deepcopy(record)
     redactor.record(record)
     assert record == before
+
+
+def test_bytes_masks_a_known_value_in_every_spelling_a_browser_writes() -> None:
+    redactor = Redactor(secret_values=['p@ss "w&rd'])
+    written = (
+        b'raw=p@ss "w&rd json=p@ss \\"w&rd percent=p%40ss%20%22w%26rd'
+        b" form=p%40ss+%22w%26rd html=p@ss &quot;w&amp;rd"
+    )
+    assert redactor.bytes(written) == (
+        f"raw={MASK} json={MASK} percent={MASK} form={MASK} html={MASK}".encode()
+    )
+
+
+def test_bytes_leaves_a_millisecond_timestamp_alone_where_text_would_mask_it() -> None:
+    redactor = Redactor([])
+    assert redactor.bytes(b'{"startTime":1789851888077}') == b'{"startTime":1789851888077}'
+    assert redactor.text('{"startTime":1789851888077}') != '{"startTime":1789851888077}'

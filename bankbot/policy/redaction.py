@@ -2,8 +2,8 @@
 
 Owns: the Redactor. It knows the secret values of this process (credentials
 from the environment, parameter values from the run) and the shapes of PII
-no run log may contain. It masks a string, and the string values inside a
-record.
+no run log may contain. It masks a string, the string values inside a
+record, and the bytes of a file this codebase did not write.
 
 Does not own: deciding when to redact. evidence/ passes every record through
 it at the write boundary; surface/ blurs fields before a screenshot using the
@@ -14,11 +14,15 @@ Governed by ADR-0005 (policy model).
 
 from __future__ import annotations
 
+import html
+import json
 import os
 import re
 from collections.abc import Iterable, Sequence
+from urllib.parse import quote, quote_plus
 
 MASK = "[REDACTED]"
+MASK_BYTES = MASK.encode()
 
 # Anything shorter would mask ordinary words ("a", "id", "the") everywhere.
 MIN_SECRET_LENGTH = 4
@@ -44,6 +48,10 @@ class Redactor:
     def __init__(self, secret_values: Iterable[str]) -> None:
         kept = {value for value in secret_values if len(value) >= MIN_SECRET_LENGTH}
         self._secret_values = sorted(kept, key=len, reverse=True)
+        spellings = {written for value in kept for written in _spellings(value)}
+        self._secret_spellings = sorted(
+            (written.encode() for written in spellings), key=len, reverse=True
+        )
 
     @classmethod
     def from_environment(
@@ -86,3 +94,26 @@ class Redactor:
         if isinstance(obj, tuple):
             return tuple(self.record(item) for item in obj)
         return obj
+
+    def bytes(self, data: bytes) -> bytes:
+        """Mask known values inside a file this codebase did not write, such as a browser trace.
+
+        Known values only, and none of the shape rules `text` applies. A
+        Playwright trace is full of 13-digit millisecond timestamps, and the
+        digit-run rule would eat every one of them and leave the archive's
+        JSON lines unparseable.
+        """
+        for spelling in self._secret_spellings:
+            data = data.replace(spelling, MASK_BYTES)
+        return data
+
+
+def _spellings(value: str) -> set[str]:
+    """Raw, JSON-escaped, percent-encoded, form-encoded, HTML-escaped: how a browser writes it."""
+    return {
+        value,
+        json.dumps(value, ensure_ascii=False)[1:-1],
+        quote(value, safe=""),
+        quote_plus(value),
+        html.escape(value),
+    }

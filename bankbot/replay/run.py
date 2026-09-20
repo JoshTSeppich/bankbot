@@ -42,7 +42,7 @@ from bankbot.schemas import (
     Success,
     WarningCode,
 )
-from bankbot.surface import Surface, distance
+from bankbot.surface import ActionFailed, Surface, distance
 
 # Outcome and recovery matchers are a quick look at the page, not a wait:
 # on the happy path they run after every step and must not slow it down.
@@ -131,7 +131,9 @@ class Replay:
         return result
 
     def _execute(self) -> ReplayResult:
-        self.surface.act(ActionType.NAVIGATE, None, self.base_url, self.step_timeout_ms)
+        opened = self._open_app()
+        if opened is not None:
+            return opened
         self._check_fingerprint()
         unmet = self._ensure_preconditions()
         if unmet is not None:
@@ -147,6 +149,24 @@ class Replay:
                 return verdict
             index = verdict
         return self._finish()
+
+    def _open_app(self) -> Failure | None:
+        """Report a deployment that will not load, instead of letting it unwind the run.
+
+        Opening the app is step zero. A slow or dead deployment is a
+        condition of the world, the same as an unmet precondition, so it
+        takes the same shape: a Failure against the first step, and the
+        normal tail behind it.
+        """
+        try:
+            self.surface.act(ActionType.NAVIGATE, None, self.base_url, self.step_timeout_ms)
+        except ActionFailed as failed:
+            return self._failure(
+                self.capability.steps[0],
+                f"the app opens at {self.base_url}",
+                f"{failed.reason} at {failed.observed}",
+            )
+        return None
 
     def _ensure_preconditions(self) -> Failure | None:
         """Make the artifact's preconditions true before step one, using the recoveries.

@@ -491,3 +491,44 @@ def test_an_abort_pressed_while_the_automation_runs_stops_before_the_next_step(
     assert result.observed == "aborted by the operator"
     started = [e["step_id"] for e in read_events(run_dir) if e["event"] == "step_started"]
     assert capability_json["steps"][2]["id"] not in started
+
+
+def test_replay_reports_a_load_that_never_finishes_as_a_failure_not_a_crash(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    arm_faults(base_url, slow_load_ms=3000)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        step_timeout_ms=500,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.step_id == capability_json["steps"][0]["id"]
+    assert result.expected == f"the app opens at {base_url}"
+    assert "about:blank" in result.observed
+    assert run_dir.result_path.exists()
+
+
+def test_a_failed_run_still_ends_its_log_with_run_finished(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    arm_faults(base_url, slow_load_ms=3000)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        step_timeout_ms=500,
+    )
+    replay.run()
+    events = [event["event"] for event in read_events(run_dir)]
+    assert events[0] == "run_started"
+    assert events[-1] == "run_finished"
+    assert run_dir.result_path.exists()

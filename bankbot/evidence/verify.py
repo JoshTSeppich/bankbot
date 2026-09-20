@@ -2,9 +2,10 @@
 
 Owns: verify_evidence, which walks every run directory under a root and
 reports what is wrong with it: a log line that does not parse or names an
-event the code does not emit, a result or capability or transcript that
-fails its schema, a screenshot a file points at that is not there, and any
-line that still carries a secret or something shaped like member PII.
+event the code does not emit, a log that stops before the run finished, a
+result or capability or transcript that fails its schema, a screenshot a
+file points at that is not there, and any line or trace member that still
+carries a secret or something shaped like member PII.
 
 This module imports the policy's redaction rules on purpose. The writer
 never does (it is handed a redactor, so evidence/ does not depend on
@@ -16,6 +17,7 @@ Governed by ADR-0005 (policy model).
 
 import json
 import re
+import zipfile
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
@@ -28,9 +30,11 @@ from bankbot.evidence.run_dir import (
     CAPABILITY_FILE,
     LOG_FILE,
     RESULT_FILE,
+    TRACE_FILE,
     TRANSCRIPT_FILE,
     RunDir,
 )
+from bankbot.evidence.trace import IMAGE_SUFFIXES
 from bankbot.evidence.writer import read_events
 from bankbot.policy.redaction import Redactor
 from bankbot.schemas import REPLAY_RESULT_ADAPTER, Capability
@@ -42,6 +46,10 @@ LEAK_PATTERNS = {
     "workspace id": re.compile(r"wrkspc_"),
 }
 SCREENSHOT_FIELD = "screenshot"
+# Trace members Playwright writes as one JSON object per line. A line that no
+# longer parses is how a redactor that cut too much would show up.
+JSON_LINE_MEMBERS = (".trace", ".network")
+FINISHED_EVENTS = (Event.RUN_FINISHED, Event.DISCOVERY_FINISHED)
 
 
 def verify_evidence(root: Path, redactor: Redactor) -> list[str]:
@@ -60,6 +68,7 @@ def verify_evidence(root: Path, redactor: Redactor) -> list[str]:
         problems.extend(_check_log(run))
         problems.extend(_check_json_files(run))
         problems.extend(_check_text_lines(run, redactor))
+        problems.extend(_check_trace(run, redactor))
     return problems
 
 
@@ -77,6 +86,7 @@ def _check_log(run: RunDir) -> Iterator[str]:
         yield f"{run.run_id}: no {LOG_FILE}"
         return
     known = {member.value for member in Event}
+    last_event: str | None = None
     for number, line in enumerate(run.log_path.read_text(encoding="utf-8").splitlines(), 1):
         where = f"{run.run_id}/{LOG_FILE}:{number}"
         try:
@@ -94,6 +104,13 @@ def _check_log(run: RunDir) -> Iterator[str]:
         except ValueError:
             yield f"{where}: timestamp is not ISO-8601: {event.get(TIMESTAMP_FIELD)!r}"
         yield from _check_screenshot(run, where, event.get(SCREENSHOT_FIELD))
+        last_event = str(event.get("event"))
+    # A log that stops anywhere else is a run that died with its evidence
+    # half written, so what it does say cannot be trusted as the whole story.
+    if last_event not in FINISHED_EVENTS:
+        yield (
+            f"{run.run_id}/{LOG_FILE}: the last event is {last_event!r}, so the run never finished"
+        )
 
 
 def _check_json_files(run: RunDir) -> Iterator[str]:
@@ -132,6 +149,36 @@ def _check_text_lines(run: RunDir, redactor: Redactor) -> Iterator[str]:
             for label, pattern in LEAK_PATTERNS.items():
                 if pattern.search(line):
                     yield f"{where}: looks like {label}"
+
+
+def _check_trace(run: RunDir, redactor: Redactor) -> Iterator[str]:
+    """Playwright writes trace.zip, so it is checked as bytes rather than as lines of JSON."""
+    if not run.trace_path.exists():
+        return
+    with zipfile.ZipFile(run.trace_path) as archive:
+        for name in archive.namelist():
+            if name.lower().endswith(IMAGE_SUFFIXES):
+                continue
+            data = archive.read(name)
+            where = f"{run.run_id}/{TRACE_FILE}:{name}"
+            if redactor.bytes(data) != data:
+                yield f"{where}: a secret value is in this member"
+            text = data.decode("utf-8", errors="replace")
+            for label, pattern in LEAK_PATTERNS.items():
+                if pattern.search(text):
+                    yield f"{where}: looks like {label}"
+            if name.endswith(JSON_LINE_MEMBERS):
+                yield from _check_json_lines(where, text)
+
+
+def _check_json_lines(where: str, text: str) -> Iterator[str]:
+    for number, line in enumerate(text.splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            json.loads(line)
+        except json.JSONDecodeError as bad:
+            yield f"{where}:{number}: not JSON ({bad.msg})"
 
 
 def _check_screenshot(run: RunDir, where: str, reference: object) -> Iterator[str]:

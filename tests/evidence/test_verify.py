@@ -1,4 +1,5 @@
 import json
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ def good_run(tmp_path: Path, redactor: Redactor) -> RunDir:
             evidence=Evidence(run_id=run.run_id, screenshot="screenshots/final.png"),
         )
     )
+    writer.event(Event.RUN_FINISHED, kind="success")
     return run
 
 
@@ -51,9 +53,9 @@ def test_a_log_line_that_is_not_json_or_names_an_unknown_event_is_reported(
         log.write(json.dumps({"ts": "2026-09-19T10:00:00+00:00", "event": "made_up"}) + "\n")
         log.write(json.dumps({"ts": "yesterday", "event": "step_done"}) + "\n")
     problems = verify_evidence(good_run.path.parent, redactor)
-    assert any("log.jsonl:3: not JSON" in p for p in problems)
-    assert any("log.jsonl:4: unknown event 'made_up'" in p for p in problems)
-    assert any("log.jsonl:5: timestamp is not ISO-8601" in p for p in problems)
+    assert any("log.jsonl:4: not JSON" in p for p in problems)
+    assert any("log.jsonl:5: unknown event 'made_up'" in p for p in problems)
+    assert any("log.jsonl:6: timestamp is not ISO-8601" in p for p in problems)
 
 
 def test_a_secret_or_pii_shaped_value_on_any_line_is_reported(
@@ -67,10 +69,10 @@ def test_a_secret_or_pii_shaped_value_on_any_line_is_reported(
         for line in (leaked, ssn, key, home):
             log.write(json.dumps(line) + "\n")
     problems = verify_evidence(good_run.path.parent, redactor)
-    assert any("log.jsonl:3: a secret or PII-shaped value" in p for p in problems)
     assert any("log.jsonl:4: a secret or PII-shaped value" in p for p in problems)
-    assert any("log.jsonl:5: looks like api key" in p for p in problems)
-    assert any("log.jsonl:6: looks like home path" in p for p in problems)
+    assert any("log.jsonl:5: a secret or PII-shaped value" in p for p in problems)
+    assert any("log.jsonl:6: looks like api key" in p for p in problems)
+    assert any("log.jsonl:7: looks like home path" in p for p in problems)
 
 
 def test_a_screenshot_a_result_points_at_must_exist(good_run: RunDir, redactor: Redactor) -> None:
@@ -93,3 +95,32 @@ def test_sequence_hashes_cover_every_run_with_a_log(good_run: RunDir) -> None:
     hashes = sequence_hashes(good_run.path.parent)
     assert list(hashes) == ["02-replay-success"]
     assert hashes["02-replay-success"].startswith("sha256:")
+
+
+def test_verify_evidence_reports_a_secret_inside_a_trace_zip(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    with zipfile.ZipFile(good_run.trace_path, "w") as archive:
+        archive.writestr("trace.trace", json.dumps({"params": {"value": SECRET}}))
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert problems == ["02-replay-success/trace.zip:trace.trace: a secret value is in this member"]
+
+
+def test_verify_evidence_reports_a_broken_json_line_inside_a_trace_zip(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    with zipfile.ZipFile(good_run.trace_path, "w") as archive:
+        archive.writestr("trace.network", '{"type":"resource-snapshot"\n')
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert any("trace.zip:trace.network:1: not JSON" in problem for problem in problems)
+
+
+def test_verify_evidence_reports_a_log_that_never_finished(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    kept = good_run.log_path.read_text().splitlines()[:-1]
+    good_run.log_path.write_text("\n".join(kept) + "\n")
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert problems == [
+        "02-replay-success/log.jsonl: the last event is 'step_done', so the run never finished"
+    ]

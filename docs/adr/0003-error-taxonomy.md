@@ -57,7 +57,7 @@ left unspent.
 Every native dialog is answered the moment it opens, by one listener in the
 surface, and that is not a preference. I measured it with an alert held open
 by a listener that answers nothing, one call per process, each killed at 20
-seconds:
+seconds (`scripts/dialog_hang_probe.py`):
 
 | Call | With a dialog open |
 |---|---|

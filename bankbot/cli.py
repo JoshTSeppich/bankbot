@@ -1,4 +1,4 @@
-"""The command line: discover, replay, operator, verify-evidence. Wiring, and one judgement.
+"""The command line: discover, compile, replay, operator, verify-evidence. Wiring, and a judgement.
 
 Owns: argument parsing, the pre-flight that decides whether a run may start,
 starting the demo app in-process when no base URL is given, opening the
@@ -30,7 +30,7 @@ import httpx
 from dotenv import load_dotenv
 from pydantic import ValidationError
 
-from bankbot.compile import compile_capability
+from bankbot.compile import TranscriptNotCompilable, compile_capability
 from bankbot.control import RunController, RunRegistry, create_operator_app
 from bankbot.discover import (
     ClaudeDecider,
@@ -38,6 +38,7 @@ from bankbot.discover import (
     DiscoveryCouldNotStart,
     ModelKeyMissing,
     StopReason,
+    Transcript,
     check_model_key,
     load_goal_spec,
 )
@@ -79,6 +80,14 @@ class CapabilityFileInvalid(Exception):
     """The artifact file is there but does not validate as a Capability."""
 
 
+class TranscriptFileMissing(Exception):
+    """There is no transcript where the caller pointed."""
+
+
+class TranscriptFileInvalid(Exception):
+    """The transcript file is there but does not validate as a Transcript."""
+
+
 class TargetUnreachable(Exception):
     """Nothing answered at the --base-url the caller gave."""
 
@@ -99,6 +108,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "discover":
             return _discover(args)
+        if args.command == "compile":
+            return _compile(args)
         if args.command == "operator":
             return _operator(args)
         if args.command == "verify-evidence":
@@ -117,6 +128,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         RunDirectoryMissing,
         SecretMissing,
         TargetUnreachable,
+        TranscriptFileInvalid,
+        TranscriptFileMissing,
+        TranscriptNotCompilable,
     ) as condition:
         print(f"error: {condition}", file=sys.stderr)
         hint = _hint_for(condition)
@@ -147,6 +161,8 @@ def _hint_for(condition: Exception) -> str | None:
         return f"replay needs no key: python -m bankbot.cli replay {RECORDED_CAPABILITY}"
     if isinstance(condition, CapabilityFileMissing):
         return f"the recorded capability is at {RECORDED_CAPABILITY}"
+    if isinstance(condition, TranscriptFileMissing):
+        return "point at a run directory, or at the transcript.json inside one"
     if isinstance(condition, RunDirectoryExists):
         return "pass a different --run-id, or delete that directory first"
     if isinstance(condition, TargetUnreachable):
@@ -155,7 +171,7 @@ def _hint_for(condition: Exception) -> str | None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Two commands with the same run options, so the README's demo lines stay short."""
+    """Discover and replay share the run options, so the README's demo lines stay short."""
     parser = argparse.ArgumentParser(prog="bankbot")
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -163,6 +179,14 @@ def build_parser() -> argparse.ArgumentParser:
     discover_cmd.add_argument("--spec", type=Path, default=DEFAULT_SPEC)
     discover_cmd.add_argument("--goal", help="override the spec's goal sentence")
     _add_run_options(discover_cmd)
+
+    compile_cmd = commands.add_parser(
+        "compile", help="re-make a capability from a saved run, with no model"
+    )
+    compile_cmd.add_argument(
+        "run", type=Path, help="a run directory, or the transcript.json inside one"
+    )
+    compile_cmd.add_argument("--spec", type=Path, default=DEFAULT_SPEC)
 
     replay_cmd = commands.add_parser("replay", help="run a capability with no model")
     replay_cmd.add_argument("capability", type=Path)
@@ -226,6 +250,39 @@ def _discover(args: argparse.Namespace) -> int:
     if transcript.stop_reason is not StopReason.DONE:
         return EXIT_RUN_FAILED
     capability = compile_capability(transcript, spec, secrets=os.environ)
+    writer.save_model("capability", capability)
+    print(f"capability: {run_dir.capability_path} ({len(capability.steps)} steps)")
+    return EXIT_OK
+
+
+def _compile(args: argparse.Namespace) -> int:
+    """Re-make an artifact from a run that already happened. No key, no browser, no model.
+
+    The transcript is the real run; the capability is one compiler's reading
+    of it. Keeping those two files apart is what lets a fix to the locator
+    rules reach the shipped artifact without paying for another model run,
+    and it is how the committed artifact is checked against its own
+    transcript rather than believed.
+
+    One caveat, and it belongs to the file rather than to this command. A
+    transcript on disk has been through the redactor, so a parameter value
+    reads as the mask token everywhere it appears. The compiler decides a
+    typed value is a parameter by comparing the two for equality, and with
+    one input the two masks are equal, so the match still holds. With two
+    inputs the masks would be equal to each other as well and the compiler
+    could no longer tell which parameter was typed. Recompiling a
+    multi-input run needs the unredacted transcript from the machine that
+    recorded it.
+    """
+    spec = load_goal_spec(args.spec)
+    pointed_at: Path = args.run
+    run_dir = RunDir.open(pointed_at if pointed_at.is_dir() else pointed_at.parent)
+    source = run_dir.transcript_path if pointed_at.is_dir() else pointed_at
+    transcript = _load_transcript(source)
+    capability = compile_capability(transcript, spec, secrets=os.environ)
+    writer = EvidenceWriter(
+        run_dir, load_policy().redactor(extra_values=transcript.params.values())
+    )
     writer.save_model("capability", capability)
     print(f"capability: {run_dir.capability_path} ({len(capability.steps)} steps)")
     return EXIT_OK
@@ -333,6 +390,23 @@ def _load_capability(path: Path) -> Capability:
         where = ".".join(str(part) for part in problem["loc"])
         detail = f"{where}: {problem['msg']}" if where else str(problem["msg"])
         raise CapabilityFileInvalid(f"{path} is not a capability: {detail}") from error
+
+
+def _load_transcript(path: Path) -> Transcript:
+    """Read the saved run before anything else, for the same reason _load_capability does."""
+    try:
+        text = path.read_text()
+    except OSError as error:
+        raise TranscriptFileMissing(
+            f"cannot read the transcript at {path}: {error.strerror}"
+        ) from error
+    try:
+        return Transcript.model_validate_json(text)
+    except ValidationError as error:
+        problem = error.errors()[0]
+        where = ".".join(str(part) for part in problem["loc"])
+        detail = f"{where}: {problem['msg']}" if where else str(problem["msg"])
+        raise TranscriptFileInvalid(f"{path} is not a transcript: {detail}") from error
 
 
 def _check_target_reachable(base_url: str | None) -> None:

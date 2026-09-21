@@ -140,3 +140,63 @@ def test_a_caller_error_exits_2_and_a_failure_result_exits_1(
         ]
     )
     assert failed == 1
+
+
+SHIPPED_RUN = Path(__file__).parent.parent / "evidence" / "01-discovery"
+
+
+def _saved_run(tmp_path: Path) -> Path:
+    """A copy of the committed discovery run with its artifact removed."""
+    run = tmp_path / "01-discovery"
+    (run / "screenshots").mkdir(parents=True)
+    (run / "transcript.json").write_text((SHIPPED_RUN / "transcript.json").read_text())
+    return run
+
+
+def test_compile_re_makes_an_artifact_from_a_saved_run_without_a_key(
+    bare_environment: None, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run = _saved_run(tmp_path)
+    code = cli.main(["compile", str(run)])
+    assert code == 0
+    written = json.loads((run / "capability.json").read_text())
+    assert [step["id"] for step in written["steps"]] == [
+        "open_start",
+        "type_member_id",
+        "click_search",
+        "click_link",
+        "read_savings_balance",
+    ]
+    assert str(run / "capability.json") in capsys.readouterr().out
+
+
+def test_compile_takes_the_transcript_itself_and_writes_the_artifact_beside_it(
+    bare_environment: None, tmp_path: Path
+) -> None:
+    run = _saved_run(tmp_path)
+    assert cli.main(["compile", str(run / "transcript.json")]) == 0
+    assert (run / "capability.json").exists()
+
+
+def test_compile_on_a_directory_with_no_transcript_is_a_caller_error(
+    bare_environment: None, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert cli.main(["compile", str(empty)]) == 2
+    assert "transcript" in capsys.readouterr().err
+
+
+def test_compile_of_a_run_that_never_finished_is_a_caller_error(
+    bare_environment: None, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Run 6 is the risky goal the policy blocked, so it stopped without a
+    # happy path in it. There is nothing to compile and nothing is written.
+    run = tmp_path / "06"
+    run.mkdir()
+    (run / "transcript.json").write_text(
+        (SHIPPED_RUN.parent / "06-discovery-risky-blocked" / "transcript.json").read_text()
+    )
+    assert cli.main(["compile", str(run)]) == 2
+    assert "intervention_aborted" in capsys.readouterr().err
+    assert not (run / "capability.json").exists()

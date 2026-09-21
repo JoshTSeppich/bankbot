@@ -22,6 +22,14 @@ itself going away, which arrives as SessionLost from the pump: the run is
 aborted with reason SESSION_LOST and the error travels on, because there is
 no browser left to hand back to.
 
+One lock and a blocking call in the same object is the thing to be
+suspicious of, so: the engine never holds the lock while it waits. request()
+takes it to set the state, drops it, and then polls in _pump_until_answered,
+taking it again only for the one-line reads and writes the operator's thread
+also takes it for. The operator app is never blocked behind the engine, and
+polling rather than a condition variable is what lets the same loop pump
+Playwright, refresh the live view and time out the two leases.
+
 Does not own: the pages a person sees (control/operator.py) or the rules
 that decide a request is needed (replay/).
 

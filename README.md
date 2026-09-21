@@ -52,6 +52,6 @@ Nothing else is mocked. The discovery run in `evidence/01-discovery` is a real m
 - REPORT.md: the write-up under the seven headings from the brief.
 - docs/adr/: the six decisions the design rests on, with what I rejected and why.
 - docs/schema/capability.schema.json: the artifact contract.
-- evidence/: seven runs, one per condition the brief names, with logs, screenshots and traces.
+- evidence/: seven runs, one per condition the brief names, in eleven directories because run 2 is replayed five times. Logs, screenshots and traces in each.
 - github.com/JoshTSeppich/cairn: the working discipline this was built under, as a Claude Code plugin.
 - github.com/JoshTSeppich/Lantern: the screen-shape method `surface/fingerprint.py` ports.

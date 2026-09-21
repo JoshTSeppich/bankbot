@@ -1,6 +1,6 @@
 # bankbot: design write-up
 
-One capability, `lookup_savings_balance(member_id)`, recorded once by a model against a legacy-style bank app I built, then replayed without one. Seven evidence runs under `evidence/`, one per condition the brief names. The six ADRs under `docs/adr/` carry the reasoning at full length; this is the short form.
+One capability, `lookup_savings_balance(member_id)`, recorded once by a model against a legacy-style bank app I built, then replayed without one. Seven evidence runs under `evidence/`, one per condition the brief names, in eleven directories because run 2 is replayed five times. The six ADRs under `docs/adr/` carry the reasoning at full length; this is the short form.
 
 ## 1. Architecture
 
@@ -12,7 +12,7 @@ One Python package, one process, no queue, no database. The seams are modules:
 | `surface/` | The only module that imports Playwright. Observe, resolve, inspect, act, read, hold, fingerprint, record a person |
 | `discover/` | Observe, ask the model for one action, check policy, act. Emits a typed transcript |
 | `compile/` | Transcript plus goal spec in, `Capability` out. Deterministic, offline |
-| `replay/` | Executes a `Capability` with no model. Preconditions first, then four classification questions in a fixed order |
+| `replay/` | Executes a `Capability` with no model. Preconditions first, then five classification questions in a fixed order |
 | `control/` | The state machine, the shared `RunController`, the operator pages, the two leases |
 | `policy/` | `policy.yaml`: allowlist, risk, redaction, drift threshold. One `check()` every enforcement point calls |
 | `evidence/` | Run directories, the JSONL writer that redacts at the boundary, the event vocabulary, the verifier |
@@ -27,15 +27,15 @@ Key decisions and what they cost:
 | Process model | Engine thread and operator app in one process, one lock | The brief rewards a working handoff, not infrastructure. The seam to a service is `RunController` |
 | Boring code | Explicit `if` chains, Pydantic everywhere, `mypy --strict`, no plugin systems | Every part has to be explainable in one breath |
 
-Cost ledger, from the evidence. Model: claude-opus-4-8 at $5 per million input tokens and $25 per million output.
+What each run cost the model, from `evidence/*/transcript.json`. Model: claude-opus-4-8.
 
-| Run | Model calls | Input tokens | Output tokens | Cost |
-|---|---|---|---|---|
-| 1, discovery | 7 | 54,874 | 973 | $0.30 |
-| 6, discovery of a risky goal | 4 | 20,294 | 489 | $0.11 |
-| 2 to 5 and 7, replay | 0 | 0 | 0 | $0 |
+| Run | Model calls | Input tokens | Output tokens |
+|---|---|---|---|
+| 1, discovery | 7 | 54,874 | 973 |
+| 6, discovery of a risky goal | 4 | 20,294 | 489 |
+| 2 to 5 and 7, replay | 0 | 0 | 0 |
 
-Most of a discovery run's input is screenshots, about 8,000 tokens per turn. The compiled capability replays in a few seconds at no model cost; that is the whole economic argument for record-once.
+About 7,800 input tokens per turn, and the transcript does not break that into text and image, so I cannot tell you the screenshot's share of it. The compiled capability replays in a few seconds with no model call at all; that is the whole economic argument for record-once.
 
 ## 2. Artifact schema
 
@@ -53,9 +53,9 @@ An extract step names an output; the output declares where. One place per value.
 
 ## 3. Determinism & error handling
 
-Replay is an interpreter over the artifact. No model, no heuristics, no retries that are not declared. Same inputs, same steps, same page: same log.
+Replay is an interpreter over the artifact. No model, no heuristics, no retries that are not declared. Same inputs, same steps, same page: the same event sequence.
 
-I check that rather than assert it. `replay --times N` runs the capability N times in fresh browsers against one target and prints a sha256 of each run's event sequence with the timestamps stripped and everything else kept, including which candidate resolved and what was extracted. Evidence run 2 is five runs:
+I check that rather than assert it. `replay --times N` runs the capability N times in fresh browsers against one target and prints a sha256 of each run's event sequence with the timestamps stripped and everything else kept, including which candidate resolved. Not the values read off the page: the log names the output and `result.json` holds what it said. Evidence run 2 is five runs:
 
 ```
 02-replay-success: sha256:7c006af67cc6ae0b05fc6e475776e77696ba2f11ff86e0af361e172795b6e565
@@ -69,12 +69,13 @@ Five identical hashes. `make verify-evidence` recomputes them from the committed
 
 A fresh browser is never signed in. The artifact's `preconditions` say "Signed in as" must be visible; replay checks that right after opening the app and, when it does not hold, runs the recovery whose matcher fits the page, the login. Logging in is a recovery and `recoveries_used` says so on every run. Nothing has to fail first.
 
-After every step, replay asks four questions in order (ADR-0003):
+After every step, replay asks five questions in order (ADR-0003):
 
 1. Does a known outcome match? `text_visible: "No member found"` ends run 3 as `Outcome{member_not_found}` with the trace kept. The caller gets an answer, not an exception.
-2. Does a known recovery match? Run 4 injects a session expiry mid-run; the URL matches `/login`, the `session_expired` recovery logs in with `SecretRef`s, and the run restarts from its first step, because after a re-login the app is on its home screen and the interrupted step has nothing to retry into. Approvals are cleared on that rewind. Result: success, `recoveries_used: [session_expired, session_expired]`.
-3. Does the step declare a retry? `retries: 2` means three tries, for transient conditions only.
-4. Otherwise a human. Run 5 injects a dialog nobody has seen; the click times out three times, the reason is `unknown_dialog`, and the engine asks. Unattended, the answer is abort and the result is a `Failure` carrying the step, expected, observed and the request. Attended, it is §5.
+2. Did the step raise a native dialog nobody recorded an answer to? A confirm is dismissed, which is the vendor's own "No", and a person is asked at once. The step's declared retries are not spent: a dismissed confirm means the action never happened, so retrying only asks the same question again. ADR-0003 has the measurement that says why the dialog cannot be left standing for a person to look at.
+3. Does a known recovery match? Run 4 injects a session expiry mid-run; the URL matches `/login`, the `session_expired` recovery logs in with `SecretRef`s, and the run restarts from its first step, because after a re-login the app is on its home screen and the interrupted step has nothing to retry into. Approvals are cleared on that rewind. Result: success, `recoveries_used: [session_expired, session_expired]`.
+4. Does the step declare a retry? `retries: 2` means three tries, for transient conditions only.
+5. Otherwise a human. Run 5 injects an unknown modal, markup rather than a native dialog; the click times out three times, the reason is `unknown_dialog`, and the engine asks. Unattended, the answer is abort and the result is a `Failure` carrying the step, expected, observed and the request. Attended, it is §5.
 
 Waits are declared, not slept: every step can carry a `wait_for` assertion, intermediate `assert_state`s from discovery become them, and the last becomes the checkpoint. Outputs are parsed by declared type at the extract step (`$4,242.00` to `4242.00` as money) and returned only after the checkpoint holds.
 
@@ -84,13 +85,13 @@ Drift is secondary and handled as a signal, not a stop. A candidate after the fi
 
 ## 4. Heterogeneity & multi-tenant
 
-Surface (ADR-0006). `surface/` is the only module that imports Playwright, behind a ten-method Protocol: observe, resolve, inspect, act, read, holds, fingerprint, trace, idle, watch a person. The artifact stores only what that Protocol takes: role and name, label, text, a structural path, a bounding box, a frame path, and state assertions of URL, visible text and visible target. Nothing Playwright-specific is ever persisted. A desktop `AXSurface` over a platform accessibility API resolves the same candidates: role and name map directly, the structural path becomes an AX tree path, the bounding box is already screen space. The artifact does not change. A legacy web app with framesets is the same surface with longer frame paths; I have not tested cross-origin iframes.
+Surface (ADR-0006). `surface/` is the only module that imports Playwright, behind a thirteen-method Protocol: observe, take_dialogs, resolve, inspect, act, read, holds, fingerprint, start and stop a trace, idle, watch and unwatch a person. The artifact stores only what that Protocol takes: role and name, label, text, a structural path, a bounding box, a frame path, and state assertions of URL, visible text and visible target. Nothing Playwright-specific is ever persisted. A desktop `AXSurface` over a platform accessibility API resolves the same candidates: role and name map directly, the structural path becomes an AX tree path, the bounding box is already screen space. The artifact does not change. A legacy web app with framesets is the same surface with longer frame paths; I have not tested cross-origin iframes.
 
-Multi-tenant (ADR-0001, ADR-0002). `app.vendor`, `app.app_id` and `app.variant` say which build an artifact was recorded on; `app.fingerprint` says what that build looked like. The fingerprint is Lantern's method (github.com/JoshTSeppich/Lantern, my own earlier project): a screen's shape is the ordered (role, state bitmap, landmark) tuples a person meets tabbing through it, and two screens are the same shape when those sequences are close under edit distance. Names and values are left out on purpose, so a bank page whose member differs is still the same shape; so are the controls inside a dialog, because a modal overlay is state the page is in, not the shape of the page, and run 5 showed the injected notice's OK button reading as a changed build before that rule existed. Replay measures each key screen the first time it lands there, logs the number as `screen_compared`, and warns past the threshold in `policy.yaml`. Run 7 is the reuse story in miniature: one artifact, a second tenant's build, the search screen at distance 0 of 2 controls, the version string different, the renamed button found by its structural path, the run successful. The design for the real environment is an overlay, not a re-record: a per-variant file that replaces individual candidates or steps by id, applied on top of the base artifact at load, with the distance saying which tenants need one before they need a re-record. Nothing in this build reads `variant`; it is the key the overlay would use.
+Multi-tenant (ADR-0001, ADR-0002). `app.vendor`, `app.app_id` and `app.variant` say which build an artifact was recorded on; `app.fingerprint` says what that build looked like. The fingerprint is Lantern's method (github.com/JoshTSeppich/Lantern, my own earlier project): a screen's shape is the ordered (role, state bitmap, landmark) tuples a person meets tabbing through it, and two screens are the same shape when those sequences are close under edit distance. Names and values are left out on purpose, so a bank page whose member differs is still the same shape; so are the controls inside a dialog, because a modal overlay is state the page is in, not the shape of the page, and run 5 showed the injected notice's OK button reading as a changed build before that rule existed. Replay measures each key screen the first time it lands there, logs the number as `screen_compared`, and warns past the threshold in `policy.yaml`. Run 7 is the reuse story in miniature: one artifact, a second tenant's build, the search screen at distance 0 of 2 controls, the version string different, the renamed button found by its structural path, the run successful. The design for the real environment is an overlay, not a re-record: a per-variant file that replaces individual candidates or steps by id, applied on top of the base artifact at load, with the distance saying which tenants need one before they need a re-record. Nothing in this build branches on `variant`; it is the key the overlay would use.
 
 ## 5. Escalation & handoff
 
-ADR-0004. Stuck is detected in three places: discovery when the model proposes a risky action, two allowlist-blocked actions in a row, or three actions that change nothing; replay when the four questions run out; and the checkpoint when it does not hold. Each raises an `InterventionRequest`: run, capability and version, goal, step index and id, expected, observed, reason (`unknown_dialog | candidate_exhausted | checkpoint_unmet | risky_needs_approval | stuck_in_discovery`), a screenshot with password fields blurred, the redacted log tail, and parameter names, never values.
+ADR-0004. Stuck is detected in three places: discovery when the model proposes a risky action, two allowlist-blocked actions in a row, or three actions that change nothing; replay when the five questions run out; and the checkpoint when it does not hold. Each raises an `InterventionRequest`: run, capability and version, goal, step index and id, expected, observed, reason (`unknown_dialog | candidate_exhausted | checkpoint_unmet | risky_needs_approval | stuck_in_discovery`), a screenshot with password fields blurred, the redacted log tail, and parameter names, never values.
 
 The state machine is `AUTOMATION → INTERVENTION_REQUESTED → HUMAN → RESUME_REQUESTED → AUTOMATION`, with `ABORTED` from any live state. One `RunController` per run holds it under one lock, shared by the engine thread and the operator app. The engine blocks inside `request()`, in the step loop, which is what lets it continue from the same step. Replay also asks the controller before every step, so an abort pressed while the automation is running stops it before the next step rather than at its next question.
 

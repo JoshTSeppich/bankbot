@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from bankbot.target import create_app
+from tests.discover.conftest import directory_spec
 from tests.target.conftest import sign_in
 
 
@@ -165,3 +166,91 @@ def test_credentials_come_from_the_environment_when_set(
 def test_sign_in_helper_matches_the_default_credentials(client: TestClient) -> None:
     sign_in(client)
     assert client.get("/members/search").status_code == 200
+
+
+def test_the_member_directory_lists_every_member_behind_a_link_named_by_its_id(
+    signed_in: TestClient,
+) -> None:
+    html = signed_in.get("/members/directory").text
+    for member_id in ["M-100", "M-101", "M-102", "M-103"]:
+        assert f'<a href="/members/profile?member={member_id}">{member_id}</a>' in html
+    assert "Dana Whitfield" in html
+    assert "<form" not in html, "the caller's input is clicked here, not typed"
+
+
+def test_a_profile_labels_its_values_with_a_plain_cell_and_no_row_header(
+    signed_in: TestClient,
+) -> None:
+    html = signed_in.get("/members/profile", params={"member": "M-100"}).text
+    assert "<h1>Dana Whitfield</h1>" in html
+    assert "<tr><td>Savings balance:</td><td>$4,242.00</td></tr>" in html
+    assert "<tr><td>Checking balance:</td><td>$318.55</td></tr>" in html
+    assert "<th" not in html
+
+
+def test_a_profile_for_an_unknown_id_is_the_no_member_found_sentence(
+    signed_in: TestClient,
+) -> None:
+    response = signed_in.get("/members/profile", params={"member": "M-999"})
+    assert response.status_code == 404
+    assert "No member found for M-999" in response.text
+
+
+def test_the_two_new_screens_name_themselves_and_every_other_page_keeps_its_title(
+    signed_in: TestClient,
+) -> None:
+    assert "<title>Member directory</title>" in signed_in.get("/members/directory").text
+    profile = signed_in.get("/members/profile", params={"member": "M-100"}).text
+    assert "<title>Member profile</title>" in profile
+    assert "<title>Legacy Core Teller</title>" in signed_in.get("/members/search").text
+    assert "<title>Legacy Core Teller</title>" in signed_in.get("/members/M-100").text
+
+
+def test_the_directory_and_profile_redirect_to_login_when_not_signed_in(
+    client: TestClient,
+) -> None:
+    for path in ["/members/directory", "/members/profile?member=M-100"]:
+        response = client.get(path)
+        assert response.status_code == 303, path
+        assert response.headers["location"] == "/login", path
+
+
+def test_the_directory_is_counted_by_the_fault_counter_like_every_member_route(
+    signed_in: TestClient,
+) -> None:
+    signed_in.post("/admin/faults", json={"session_expiry_at_step": 2})
+
+    assert signed_in.get("/members/directory").status_code == 200
+    expired = signed_in.get("/members/profile", params={"member": "M-100"})
+    assert expired.status_code == 303
+    assert expired.headers["location"] == "/login"
+
+
+def test_variant_b_has_the_directory_and_profile_under_its_own_prefix(
+    client: TestClient,
+) -> None:
+    sign_in(client, prefix="/b")
+    html = client.get("/b/members/directory").text
+    assert '<a href="/b/members/profile?member=M-100">M-100</a>' in html
+    assert "Savings balance:" in client.get("/b/members/profile?member=M-100").text
+
+
+def test_no_shipped_screen_links_to_the_directory_or_a_profile(signed_in: TestClient) -> None:
+    for path in ["/members/search", "/members/search-form", "/members/M-100"]:
+        html = signed_in.get(path).text
+        assert "/members/directory" not in html, path
+        assert "/members/profile" not in html, path
+    assert (
+        "/members/profile"
+        not in signed_in.post("/members/results", data={"member_id": "M-100"}).text
+    )
+
+
+def test_the_directory_goal_spec_starts_on_a_screen_this_app_serves(
+    signed_in: TestClient,
+) -> None:
+    spec = directory_spec()
+    assert signed_in.get(spec.start_path).status_code == 200
+    assert spec.outputs == {"savings_balance": "money"}
+    assert list(spec.inputs) == ["member_id"]
+    assert [recovery.id for recovery in spec.recoveries] == ["session_expired"]

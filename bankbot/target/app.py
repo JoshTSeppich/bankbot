@@ -266,6 +266,30 @@ def build_variant_router(variant: Variant, shared: Shared) -> APIRouter:
             return redirect("/login")
         return render_results(request, page, member_id.strip())
 
+    # ParaBank reaches a record by clicking its id in a list and labels values with a
+    # plain cell; the shipped screens do neither, which is why neither shape was ever
+    # tested. Nothing links here, so the recorded capability still sees the old pages.
+    @router.get("/members/directory")
+    def directory(request: Request, page: Counted) -> Response:
+        if page.username is None:
+            return redirect("/login")
+        return render(
+            request,
+            "directory.html",
+            page,
+            title="Member directory",
+            members=list(MEMBERS.values()),
+        )
+
+    @router.get("/members/profile")
+    def profile(request: Request, page: Counted, member: str = "") -> Response:
+        if page.username is None:
+            return redirect("/login")
+        found = MEMBERS.get(member.strip())
+        if found is None:
+            return render_missing(request, page, member.strip())
+        return render(request, "profile.html", page, title="Member profile", member=found)
+
     @router.get("/members/{member_id}")
     def member_detail(request: Request, page: Counted, member_id: str) -> Response:
         if page.username is None:

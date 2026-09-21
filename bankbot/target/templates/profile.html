@@ -1,0 +1,11 @@
+{% extends "page.html" %}
+{% block content %}
+<h1>{{ member.name }}</h1>
+<table class="accounts">
+  <tr><td>Member ID:</td><td>{{ member.member_id }}</td></tr>
+  <tr><td>Branch:</td><td>{{ member.branch }}</td></tr>
+  {% if member.note %}<tr><td>Note:</td><td>{{ member.note }}</td></tr>{% endif %}
+  <tr><td>Savings balance:</td><td>{{ money(member.savings) }}</td></tr>
+  <tr><td>Checking balance:</td><td>{{ money(member.checking) }}</td></tr>
+</table>
+{% endblock %}

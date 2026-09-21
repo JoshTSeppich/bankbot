@@ -10,6 +10,9 @@ TESTS_DIR = Path(__file__).resolve().parent
 
 ID_OR_TEST_ID = re.compile(r"\s(?:id|data-testid)=")
 NINE_OR_MORE_DIGITS = re.compile(r"\d{9,}")
+# Three titles now: the directory and the profile name themselves so a capability
+# recorded on one screen can tell it is on the other.
+PAGE_TITLES = ["Legacy Core Teller", "Member directory", "Member profile"]
 
 
 def every_page(client: TestClient) -> dict[str, str]:
@@ -24,7 +27,11 @@ def every_page(client: TestClient) -> dict[str, str]:
         client.post("/admin/faults", json={"unknown_dialog_at_step": 1})
         pages[f"{prefix}/members/search"] = client.get(f"{prefix}/members/search").text
         pages[f"{prefix}/members/search-form"] = client.get(f"{prefix}/members/search-form").text
+        pages[f"{prefix}/members/directory"] = client.get(f"{prefix}/members/directory").text
         for member_id in ["M-100", "M-101", "M-102", "M-103", "M-999"]:
+            pages[f"{prefix}/members/profile {member_id}"] = client.get(
+                f"{prefix}/members/profile", params={"member": member_id}
+            ).text
             pages[f"{prefix}/members/results {member_id}"] = client.post(
                 f"{prefix}/members/results", data={"member_id": member_id}
             ).text
@@ -53,11 +60,11 @@ def test_no_nine_or_sixteen_digit_numbers_appear_in_the_target_source_or_its_tes
         assert not NINE_OR_MORE_DIGITS.search(path.read_text()), path
 
 
-def test_every_page_carries_the_title_and_the_application_version_meta(
+def test_every_page_carries_a_title_and_the_application_version_meta(
     client: TestClient,
 ) -> None:
     for name, html in every_page(client).items():
-        assert "<title>Legacy Core Teller</title>" in html, name
+        assert any(f"<title>{title}</title>" in html for title in PAGE_TITLES), name
         expected = "7.3.0" if name.startswith("/b") else "7.2.1"
         assert f'<meta name="application-version" content="{expected}">' in html, name
 

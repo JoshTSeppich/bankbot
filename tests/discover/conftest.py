@@ -19,6 +19,13 @@ from bankbot.replay.escalation import Escalation
 from bankbot.surface import PlaywrightSurface
 
 GOALS = Path(__file__).parent.parent.parent / "bankbot" / "discover" / "goals"
+# A test fixture, not a second product capability: it exercises the directory screens.
+DIRECTORY_GOAL = (
+    Path(__file__).parent.parent
+    / "fixtures"
+    / "goals"
+    / "lookup_savings_balance_from_directory.json"
+)
 TEST_SECRETS = {"BANKBOT_USERNAME": "teller", "BANKBOT_PASSWORD": "teller-demo-password"}
 
 
@@ -69,6 +76,10 @@ def lookup_spec() -> GoalSpec:
 
 def close_spec() -> GoalSpec:
     return load_goal_spec(GOALS / "close_member_account.json")
+
+
+def directory_spec() -> GoalSpec:
+    return load_goal_spec(DIRECTORY_GOAL)
 
 
 def make_discovery(

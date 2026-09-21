@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import Page
 
 from bankbot.compile import (
+    InputNeverUsed,
     NoCheckpointAsserted,
     SecretLeakedIntoTranscript,
     TranscriptNotCompilable,
@@ -16,6 +17,7 @@ from bankbot.policy import Policy
 from bankbot.schemas import (
     Capability,
     Fail,
+    InputSpec,
     LocatorStrategy,
     Outcome,
     ParamRef,
@@ -173,6 +175,15 @@ def test_a_typed_secret_refuses_to_compile(recorded: Recorded) -> None:
     transcript, spec = recorded
     with pytest.raises(SecretLeakedIntoTranscript):
         compile_capability(transcript, spec, secrets={"BANKBOT_PASSWORD": "M-100"})
+
+
+def test_a_spec_input_the_run_never_used_refuses_to_compile(recorded: Recorded) -> None:
+    transcript, spec = recorded
+    extra = spec.model_copy(
+        update={"inputs": {**spec.inputs, "branch": InputSpec(example="Riverside")}}
+    )
+    with pytest.raises(InputNeverUsed, match="input branch was never used"):
+        compile_capability(transcript, extra)
 
 
 def test_a_run_without_a_held_assert_refuses_to_compile(recorded: Recorded) -> None:

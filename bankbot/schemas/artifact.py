@@ -12,6 +12,7 @@ Governed by ADR-0001 (artifact schema), ADR-0002 (locator strategy) and
 ADR-0003 (error taxonomy).
 """
 
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal, Self
@@ -188,6 +189,19 @@ class Step(StrictModel):
     on_fail: OnFail = Field(default_factory=Fail)
 
 
+def inputs_never_used(inputs: Iterable[str], steps: Iterable[Step]) -> list[str]:
+    """Name the declared inputs that no step references.
+
+    An input nothing reads is a capability that ignores its caller: it walks
+    the recorded flow and answers about the recorded record whatever it was
+    asked for. The schema rejects one, and the compiler asks the same
+    question first so discovery can name the input instead of printing a
+    validation dump.
+    """
+    used = {step.value.param for step in steps if isinstance(step.value, ParamRef)}
+    return [name for name in inputs if name not in used]
+
+
 # --- Inputs, outputs and the error taxonomy --------------------------------
 
 
@@ -354,6 +368,10 @@ class Capability(StrictModel):
                 raise ValueError(
                     f"step {step.id!r} references undeclared recovery {step.on_fail.recovery_id!r}"
                 )
+
+        unused = inputs_never_used(self.inputs, all_steps)
+        if unused:
+            raise ValueError(f"input {unused[0]!r} is never used by any step")
 
         for recovery in self.recoveries:
             if recovery.resume_from_step is not None and recovery.resume_from_step not in step_ids:

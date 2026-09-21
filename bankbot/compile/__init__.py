@@ -14,6 +14,7 @@ Governed by ADR-0001 (artifact schema) and ADR-0002 (locator strategy).
 
 from bankbot.compile.candidates import target_from_facts
 from bankbot.compile.compiler import (
+    InputNeverUsed,
     NoCheckpointAsserted,
     SecretLeakedIntoTranscript,
     TranscriptNotCompilable,
@@ -21,6 +22,7 @@ from bankbot.compile.compiler import (
 )
 
 __all__ = [
+    "InputNeverUsed",
     "NoCheckpointAsserted",
     "SecretLeakedIntoTranscript",
     "TranscriptNotCompilable",

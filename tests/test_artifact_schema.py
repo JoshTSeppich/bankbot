@@ -50,6 +50,13 @@ def test_step_referencing_undeclared_input_is_rejected_at_load_time() -> None:
         Capability.model_validate(example)
 
 
+def test_a_capability_whose_input_no_step_uses_is_rejected() -> None:
+    example = load_example()
+    example["inputs"]["branch"] = {"type": "string", "required": True, "example": "Riverside"}
+    with pytest.raises(ValidationError, match="input 'branch' is never used"):
+        Capability.model_validate(example)
+
+
 def test_step_referencing_undeclared_recovery_is_rejected_at_load_time() -> None:
     example = load_example()
     example["steps"][0]["on_fail"] = {"kind": "recover", "recovery_id": "session_expired"}

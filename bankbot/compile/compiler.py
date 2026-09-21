@@ -37,6 +37,7 @@ from bankbot.schemas import (
     StateAssertion,
     Step,
     TargetRef,
+    inputs_never_used,
 )
 from bankbot.surface import ElementFacts
 
@@ -52,6 +53,10 @@ class TranscriptNotCompilable(Exception):
 
 class NoCheckpointAsserted(Exception):
     """The model never asserted a final state, so replay would have nothing to verify."""
+
+
+class InputNeverUsed(Exception):
+    """A declared input no step reads. The capability would ignore its caller."""
 
 
 class SecretLeakedIntoTranscript(Exception):
@@ -97,6 +102,10 @@ def compile_capability(
 
     if checkpoint is None:
         raise NoCheckpointAsserted("no assert_state held during the run")
+    recovery_steps = [step for recovery in spec.recoveries for step in recovery.steps]
+    unused = inputs_never_used(spec.inputs, steps + recovery_steps)
+    if unused:
+        raise InputNeverUsed(f"input {', '.join(unused)} was never used")
     first_step_id = steps[0].id
     return Capability(
         id=spec.capability_id,

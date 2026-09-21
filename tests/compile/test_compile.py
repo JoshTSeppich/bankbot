@@ -12,7 +12,7 @@ from bankbot.compile import (
     TranscriptNotCompilable,
     compile_capability,
 )
-from bankbot.discover import GoalSpec, StopReason, ToolAction, Transcript
+from bankbot.discover import GoalSpec, StopReason, ToolAction, Transcript, load_goal_spec
 from bankbot.policy import Policy
 from bankbot.schemas import (
     Capability,
@@ -34,6 +34,11 @@ from tests.discover.conftest import (
 from tests.replay.conftest import make_replay
 
 Recorded = tuple[Transcript, GoalSpec]
+REPO = Path(__file__).resolve().parents[2]
+# The one model-authored transcript in the repo, and the artifact whose committed
+# copy carries the leak this rule is about.
+SHIPPED_TRANSCRIPT = REPO / "evidence" / "01-discovery" / "transcript.json"
+SHIPPED_GOAL = REPO / "bankbot" / "discover" / "goals" / "lookup_savings_balance.json"
 
 
 def compiled(recorded: Recorded) -> Capability:
@@ -263,3 +268,17 @@ def test_a_link_named_after_a_record_ranks_its_position_first_and_never_offers_i
     search = next(step for step in capability.steps if step.id == "click_search")
     assert search.target is not None
     assert search.target.candidates[0].strategy is LocatorStrategy.ROLE_NAME, "buttons keep theirs"
+
+
+def test_the_shipped_transcript_compiles_without_a_recorded_value_in_it() -> None:
+    transcript = Transcript.model_validate_json(SHIPPED_TRANSCRIPT.read_text())
+    capability = compile_capability(transcript, load_goal_spec(SHIPPED_GOAL))
+    dumped = capability.model_dump_json()
+    extracted = [
+        step.element.text
+        for step in transcript.steps
+        if step.action.action is ToolAction.EXTRACT and step.element and step.element.text
+    ]
+    assert extracted, "the shipped run read something off the screen"
+    for value in [*extracted, *transcript.params.values()]:
+        assert value not in dumped, value

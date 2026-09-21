@@ -3,7 +3,7 @@ from pathlib import Path
 from playwright.sync_api import Page
 
 from bankbot.compile import compile_capability
-from bankbot.discover import ToolAction
+from bankbot.discover import ProposedAction, ToolAction
 from bankbot.evidence import read_events
 from bankbot.policy import Policy
 from bankbot.schemas import Capability, Failure, LocatorStrategy, Outcome, Success
@@ -90,6 +90,32 @@ def test_a_member_whose_profile_has_an_extra_row_still_returns_their_own_balance
     result = replay.run()
     assert isinstance(result, Success), result
     assert result.outputs == {"savings_balance": "987.65"}
+
+
+def test_the_models_own_sentence_is_dropped_when_it_quotes_a_recorded_value(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    quoting = ProposedAction(
+        reasoning="M-100 is the row the caller asked for.",
+        action=ToolAction.CLICK,
+        role="link",
+        name="M-100",
+    )
+    spec = directory_spec()
+    discovery, _ = make_discovery(
+        spec,
+        {"member_id": "M-100"},
+        ScriptedDecider([quoting, *FROM_DIRECTORY[1:]]),
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path / "discover",
+    )
+    capability = compile_capability(discovery.run(), spec)
+    click = next(step for step in capability.steps if step.action.value == "click")
+    assert click.target is not None
+    assert "M-100" not in click.target.candidates[0].reasoning
+    assert "M-100" not in capability.model_dump_json()
 
 
 def test_a_member_who_is_not_listed_is_never_a_success(

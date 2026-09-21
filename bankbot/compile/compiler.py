@@ -18,7 +18,7 @@ import re
 from collections.abc import Mapping
 from urllib.parse import urlparse
 
-from bankbot.compile.candidates import target_from_facts
+from bankbot.compile.candidates import names_a_recorded_value, target_from_facts
 from bankbot.discover import GoalSpec, ProposedAction, StopReason, ToolAction, Transcript
 from bankbot.discover.transcript import TranscriptStep
 from bankbot.schemas import (
@@ -44,6 +44,7 @@ from bankbot.surface import ElementFacts
 FIRST_VERSION = "1.0.0"
 NAVIGATION_RETRIES = 2
 OPEN_STEP_ID = "open_start"
+SENTENCE_WITHHELD = "The model's sentence for this step named a recorded value and was dropped."
 ACTED = (ToolAction.CLICK, ToolAction.TYPE, ToolAction.SELECT, ToolAction.NAVIGATE)
 
 
@@ -92,7 +93,7 @@ def compile_capability(
                 type=spec.outputs[name],
                 extract=target_from_facts(
                     recorded.element,
-                    action.reasoning,
+                    _model_sentence(action.reasoning, recorded_values),
                     for_output=True,
                     recorded_values=recorded_values,
                 ),
@@ -173,7 +174,9 @@ def _acted_step(
     kind = ActionType(action.action.value)
     element = recorded.element
     target = (
-        _target_for(element, action.reasoning, transcript, recorded_values)
+        _target_for(
+            element, _model_sentence(action.reasoning, recorded_values), transcript, recorded_values
+        )
         if element is not None
         else None
     )
@@ -284,7 +287,7 @@ def _wait_after(
 def _assertion(
     action: ProposedAction, recorded: TranscriptStep, recorded_values: list[str]
 ) -> StateAssertion:
-    """The model's claim as a checkable assertion, with any output value taken out of it.
+    """The model's claim as a checkable assertion, with any recorded value taken out of it.
 
     A checkpoint that names today's balance would only ever pass for the
     recorded member. The value is stripped and what remains ("Savings
@@ -294,9 +297,10 @@ def _assertion(
     name = action.name or ""
     for value in recorded_values:
         if value and value in name:
+            remaining = name.replace(value, "").strip() or action.text
             return StateAssertion(
-                description=action.description or action.reasoning,
-                text_visible=name.replace(value, "").strip() or action.text,
+                description=_claim(action, remaining, recorded_values),
+                text_visible=remaining,
             )
     if action.role and action.name:
         target = TargetRef(
@@ -305,16 +309,36 @@ def _assertion(
                     strategy=LocatorStrategy.ROLE_NAME,
                     value=f"{action.role}:{action.name}",
                     confidence=0.9,
-                    reasoning=action.reasoning,
+                    reasoning=_model_sentence(action.reasoning, recorded_values),
                 )
             ],
             frame_path=_frame_holding(recorded, action.name),
         )
     return StateAssertion(
-        description=action.description or action.reasoning,
+        description=_claim(action, action.text, recorded_values),
         text_visible=action.text,
         target_visible=target,
     )
+
+
+def _claim(action: ProposedAction, checked: str | None, recorded_values: list[str]) -> str:
+    """What the assertion says it checks, in the model's words unless they carry a value.
+
+    The model writes "Member M-100's profile shows Savings balance
+    $4,242.00". Stripping the value out of what is checked and leaving it in
+    the sentence beside it puts a member's balance in a reusable artifact.
+    """
+    described = action.description or action.reasoning
+    if not names_a_recorded_value(described, recorded_values):
+        return described
+    return f"The page shows {checked!r}" if checked else "The page reached the recorded state"
+
+
+def _model_sentence(reasoning: str, recorded_values: list[str]) -> str:
+    """The model's reason for a step, unless it quotes a value this run was given or read."""
+    if names_a_recorded_value(reasoning, recorded_values):
+        return SENTENCE_WITHHELD
+    return reasoning
 
 
 def _recorded_values(kept: list[TranscriptStep], transcript: Transcript) -> list[str]:

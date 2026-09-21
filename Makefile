@@ -56,8 +56,29 @@ operator:
 
 demo: discover replay replay-notfound replay-expiry
 
-# The seven evidence runs, written under evidence/ with their traces kept. A
-# run directory is never overwritten: delete it first to redo a run.
+# The seven evidence runs, written under evidence/ with their traces kept.
+#
+# Order matters. 01 compiles the capability the other six replay, so it goes
+# first and 06 goes last; 01 and 06 are also the only two that call a model
+# and cost money. A run directory is never overwritten, so a redo is two
+# commands:
+#
+#     rm -rf evidence/03-replay-member-not-found && make evidence-03
+#
+# and the whole set is:
+#
+#     rm -rf evidence && make evidence-01 evidence-02 evidence-03 \
+#         evidence-04 evidence-05 evidence-07 evidence-06 && make verify-evidence
+#
+# Rebuilding the artifact alone needs no key and no model call, because the
+# transcript of the recorded run is committed beside it:
+#
+#     uv run python -m bankbot.cli compile evidence/01-discovery
+#
+# evidence-05 is the one that needs a person. It opens a browser window and
+# prints an operator URL; what the committed run records is Take control,
+# Mark step complete, the engine checking the step's wait_for and disagreeing,
+# then Take control and Abort. README has the sequence.
 evidence-01: .env
 	$(CLI) discover --goal "look up the savings balance for the member" --param member_id=M-100 \
 	  --runs-dir evidence --run-id 01-discovery

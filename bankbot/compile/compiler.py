@@ -74,7 +74,7 @@ def compile_capability(
     outputs: dict[str, OutputSpec] = {}
     checkpoint: StateAssertion | None = None
     kept = [step for step in transcript.steps if step.status in ("ok", "holds")]
-    values_seen = _output_texts(kept)
+    recorded_values = _recorded_values(kept, transcript)
 
     for position, recorded in enumerate(kept):
         action = recorded.action
@@ -82,13 +82,20 @@ def compile_capability(
         if (
             action.action in ACTED and recorded.element is not None
         ) or action.action is ToolAction.NAVIGATE:
-            step = _acted_step(recorded, following, transcript, secret_values, steps, values_seen)
+            step = _acted_step(
+                recorded, following, transcript, secret_values, steps, recorded_values
+            )
             steps.append(step)
         elif action.action is ToolAction.EXTRACT and recorded.element is not None:
             name = action.output_name or ""
             outputs[name] = OutputSpec(
                 type=spec.outputs[name],
-                extract=target_from_facts(recorded.element, action.reasoning, for_output=True),
+                extract=target_from_facts(
+                    recorded.element,
+                    action.reasoning,
+                    for_output=True,
+                    recorded_values=recorded_values,
+                ),
             )
             steps.append(
                 Step(
@@ -98,7 +105,7 @@ def compile_capability(
                 )
             )
         elif action.action is ToolAction.ASSERT_STATE:
-            checkpoint = _assertion(action, recorded, values_seen)
+            checkpoint = _assertion(action, recorded, recorded_values)
 
     if checkpoint is None:
         raise NoCheckpointAsserted("no assert_state held during the run")
@@ -160,13 +167,17 @@ def _acted_step(
     transcript: Transcript,
     secret_values: set[str],
     so_far: list[Step],
-    values_seen: list[str],
+    recorded_values: list[str],
 ) -> Step:
     action = recorded.action
     kind = ActionType(action.action.value)
     element = recorded.element
-    target = _target_for(element, action.reasoning, transcript) if element is not None else None
-    wait_for = _wait_after(recorded, following, transcript, values_seen)
+    target = (
+        _target_for(element, action.reasoning, transcript, recorded_values)
+        if element is not None
+        else None
+    )
+    wait_for = _wait_after(recorded, following, transcript, recorded_values)
     step_id = _unique(f"{kind.value}_{_slug(action.name or action.url or kind.value)}", so_far)
     step = Step(id=step_id, action=kind, target=target, wait_for=wait_for)
     if kind is ActionType.TYPE:
@@ -187,7 +198,9 @@ def _acted_step(
     return step
 
 
-def _target_for(element: ElementFacts, reasoning: str, transcript: Transcript) -> TargetRef:
+def _target_for(
+    element: ElementFacts, reasoning: str, transcript: Transcript, recorded_values: list[str]
+) -> TargetRef:
     """Rank the acted control, asking "is this the caller's record?" before anything else."""
     input_name = _input_named(element, transcript)
     return target_from_facts(
@@ -195,6 +208,7 @@ def _target_for(element: ElementFacts, reasoning: str, transcript: Transcript) -
         reasoning,
         input_name=input_name,
         name_is_data=input_name is None and _names_a_record(element, transcript),
+        recorded_values=recorded_values,
     )
 
 
@@ -244,7 +258,7 @@ def _wait_after(
     recorded: TranscriptStep,
     following: TranscriptStep | None,
     transcript: Transcript,
-    values_seen: list[str],
+    recorded_values: list[str],
 ) -> StateAssertion | None:
     """What the page looked like after the action: a URL change, an asserted state, or both."""
     url_pattern: str | None = None
@@ -254,7 +268,7 @@ def _wait_after(
         if after != before:
             url_pattern = _generalise(after, transcript) + "$"
     asserted = (
-        _assertion(following.action, following, values_seen)
+        _assertion(following.action, following, recorded_values)
         if following is not None and following.action.action is ToolAction.ASSERT_STATE
         else None
     )
@@ -268,7 +282,7 @@ def _wait_after(
 
 
 def _assertion(
-    action: ProposedAction, recorded: TranscriptStep, values_seen: list[str]
+    action: ProposedAction, recorded: TranscriptStep, recorded_values: list[str]
 ) -> StateAssertion:
     """The model's claim as a checkable assertion, with any output value taken out of it.
 
@@ -278,7 +292,7 @@ def _assertion(
     """
     target: TargetRef | None = None
     name = action.name or ""
-    for value in values_seen:
+    for value in recorded_values:
         if value and value in name:
             return StateAssertion(
                 description=action.description or action.reasoning,
@@ -303,15 +317,20 @@ def _assertion(
     )
 
 
-def _output_texts(kept: list[TranscriptStep]) -> list[str]:
-    """The on-screen text of every extracted element, as the page showed it."""
-    return [
+def _recorded_values(kept: list[TranscriptStep], transcript: Transcript) -> list[str]:
+    """Every value this run was given or read: the caller's parameters and the extracted text.
+
+    One list, because the artifact must not carry either of them, and the
+    rules that keep them out ask the same question of both.
+    """
+    extracted = [
         step.element.text
         for step in kept
         if step.action.action is ToolAction.EXTRACT
         and step.element is not None
         and step.element.text
     ]
+    return [*(value for value in transcript.params.values() if value), *extracted]
 
 
 def _frame_holding(recorded: TranscriptStep, name: str) -> list[str]:

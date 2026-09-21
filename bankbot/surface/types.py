@@ -53,9 +53,13 @@ class ElementFacts(StrictModel):
 
     The compiler turns these into ranked candidates (role+name first, bbox
     last), so every field is a possible locator and none of them is a
-    Playwright handle. row_header is the text of the first th in the same
-    table row when the element is a data cell: a balance cell is anchored on
-    "Savings balance", never on the amount it happens to hold today.
+    Playwright handle. row_header is the text that labels the element's table
+    row, and row_header_tag is the tag that carried it: a balance cell is
+    anchored on "Savings balance", never on the amount it happens to hold
+    today. Legacy apps write that label as a th on one screen and as a plain
+    first cell on the next, so the tag travels with the text. It defaults to
+    th because a transcript recorded before this field existed only ever
+    looked at a th, and that is what those recordings meant.
     """
 
     role: str | None
@@ -63,6 +67,7 @@ class ElementFacts(StrictModel):
     label: str | None
     text: str | None
     row_header: str | None
+    row_header_tag: str | None = "th"
     css_path: str
     bbox: BBox
     frame_path: list[str]

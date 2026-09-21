@@ -16,6 +16,8 @@ Does not own: resolving candidates (surface/) or assembling steps
 Governed by ADR-0002 (locator strategy).
 """
 
+from collections.abc import Sequence
+
 from bankbot.schemas import Candidate, LocatorStrategy, TargetRef
 from bankbot.surface import ElementFacts
 
@@ -34,6 +36,17 @@ NO_FALLBACK = (
 )
 
 
+def names_a_recorded_value(text: str, recorded_values: Sequence[str]) -> bool:
+    """Whether text repeats a parameter value or a value the run extracted.
+
+    Two callers, one hazard. A label cell whose text is a member's own data
+    would anchor an output on that member. A model's sentence that quotes
+    the balance would put the balance in the reusable artifact. The compiler
+    holds the raw values, so this is exact matching and not pattern guessing.
+    """
+    return any(value and value in text for value in recorded_values)
+
+
 def target_from_facts(
     facts: ElementFacts,
     reasoning: str,
@@ -41,6 +54,7 @@ def target_from_facts(
     for_output: bool = False,
     name_is_data: bool = False,
     input_name: str | None = None,
+    recorded_values: Sequence[str] = (),
 ) -> TargetRef:
     """Rank every fact about the element into a candidate, most durable first.
 
@@ -57,6 +71,10 @@ def target_from_facts(
     input_name marks a control whose name is the value of a caller's input,
     such as the directory link whose text is the member id. It gets one
     candidate, templated on that input, and nothing else.
+
+    recorded_values are the run's parameter and extracted values. A row
+    label that repeats one of them is somebody's data, not a label, and no
+    candidate is built from it.
     """
     if input_name is not None and facts.role:
         return TargetRef(
@@ -91,13 +109,17 @@ def target_from_facts(
                 reasoning="The control's label, which a person reads to find it.",
             )
         )
-    if facts.row_header:
+    if (
+        facts.row_header
+        and facts.row_header_tag
+        and not names_a_recorded_value(facts.row_header, recorded_values)
+    ):
         candidates.append(
             Candidate(
                 strategy=LocatorStrategy.CSS_STRUCTURAL,
-                value=f'th:text-is("{facts.row_header}") + td',
+                value=f'{facts.row_header_tag}:text-is("{facts.row_header}") + td',
                 confidence=ROW_HEADER_CONFIDENCE,
-                reasoning="The cell right after its row header; survives rows moving.",
+                reasoning="The cell right after the one that labels its row; survives rows moving.",
             )
         )
     if facts.text and facts.text != facts.name and not for_output and not name_is_data:

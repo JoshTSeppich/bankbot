@@ -65,6 +65,33 @@ def test_a_capability_recorded_on_one_member_returns_the_balance_of_the_member_a
     assert resolved and all(event["candidate_index"] == 0 for event in resolved), resolved
 
 
+def test_an_output_on_a_labelled_row_is_anchored_on_its_label_cell_first(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    capability = record_on_m100(page, policy, base_url, tmp_path)
+    candidates = capability.outputs["savings_balance"].extract.candidates
+    assert candidates[0].value == 'td:text-is("Savings balance:") + td'
+    assert candidates[1].strategy is LocatorStrategy.CSS_STRUCTURAL
+    assert candidates[1].value.startswith("body >")
+
+
+def test_a_member_whose_profile_has_an_extra_row_still_returns_their_own_balance(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    capability = record_on_m100(page, policy, base_url, tmp_path)
+    replay, _ = make_replay(
+        capability,
+        {"member_id": "M-103"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path / "replay",
+    )
+    result = replay.run()
+    assert isinstance(result, Success), result
+    assert result.outputs == {"savings_balance": "987.65"}
+
+
 def test_a_member_who_is_not_listed_is_never_a_success(
     page: Page, policy: Policy, base_url: str, tmp_path: Path
 ) -> None:

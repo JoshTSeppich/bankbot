@@ -17,7 +17,8 @@ from bankbot.surface.types import ElementFacts
 # Computes, for one element: its role (explicit role attribute, else a small implicit map that
 # follows what Playwright's own snapshot reports for this app's tags), a best-effort accessible
 # name (aria-label, else its <label>, else its text, else its value), the label text, the visible
-# text capped at 80 characters, the first th of its table row when it is or sits inside a td (null
+# text capped at 80 characters, the text that labels its table row and the tag that carried it
+# (the row's first th, or the first of exactly two td when the element is the second; null
 # otherwise), a CSS path from body down using tag and :nth-of-type only where a
 # tag repeats among its siblings, and a bounding box in CSS pixels of the top document (each
 # enclosing iframe's offset is added, so a same-origin frame gives the same coordinates a bbox
@@ -46,8 +47,17 @@ ELEMENT_FACTS_JS = """
   const name = element.getAttribute("aria-label") || label || text || value || null;
 
   const cell = element.closest("td");
-  const th = cell && cell.closest("tr") ? cell.closest("tr").querySelector("th") : null;
-  const rowHeader = th ? (th.innerText.trim() || null) : null;
+  const row = cell ? cell.closest("tr") : null;
+  const th = row ? row.querySelector("th") : null;
+  let rowHeader = th ? (th.innerText.trim() || null) : null;
+  let rowHeaderTag = rowHeader ? "th" : null;
+  if (!rowHeader && row) {
+    const cells = Array.from(row.children).filter((c) => c.tagName === "TD");
+    if (cells.length === 2 && cells[1] === cell) {
+      rowHeader = cells[0].innerText.trim() || null;
+      rowHeaderTag = rowHeader ? "td" : null;
+    }
+  }
 
   const segments = [];
   const body = element.ownerDocument.body;
@@ -70,7 +80,8 @@ ELEMENT_FACTS_JS = """
   }
 
   return { role, name, label, text: text ? text.slice(0, 80) : null, row_header: rowHeader,
-           css_path: segments.join(" > "), bbox: [x, y, rect.width, rect.height] };
+           row_header_tag: rowHeaderTag, css_path: segments.join(" > "),
+           bbox: [x, y, rect.width, rect.height] };
 }
 """
 

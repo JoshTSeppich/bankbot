@@ -247,8 +247,12 @@ class StepRunner:
         try:
             value = parse_output(name, spec, read.text)
         except OutputUnreadable as unreadable:
+            # The cell is described, not quoted: whatever the locator landed on is a
+            # member's data, and this text reaches result.json and the operator page.
             raise StepFailed(
-                f"output {name!r} as {spec.type}", read.text, InterventionReason.CHECKPOINT_UNMET
+                f"output {name!r} as {spec.type}",
+                f"{len(read.text)} characters that do not parse as {spec.type}",
+                InterventionReason.CHECKPOINT_UNMET,
             ) from unreadable
         self.writer.event(Event.OUTPUT_EXTRACTED, output=name, value=value)
         return Attempted(candidate_index=read.candidate_index, output_name=name, output_value=value)

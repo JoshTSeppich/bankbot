@@ -738,3 +738,38 @@ def test_a_failure_about_a_filled_locator_names_the_input_not_the_value(
     assert "link:{input:member_id}" in result.observed
     assert "M-999" not in result.observed
     assert "M-999" not in run_dir.log_path.read_text()
+
+
+def test_an_output_that_does_not_parse_is_described_and_never_quoted(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    capability = directory_capability()
+    # Aimed at the branch cell, which is a member's data and is not money.
+    misaimed = capability.outputs["savings_balance"].model_copy(
+        update={
+            "extract": TargetRef(
+                candidates=[
+                    Candidate(
+                        strategy=LocatorStrategy.CSS_STRUCTURAL,
+                        value='td:text-is("Branch:") + td',
+                        confidence=0.85,
+                        reasoning="The cell right after the one that labels its row.",
+                    )
+                ]
+            )
+        }
+    )
+    replay, run_dir = make_replay(
+        capability.model_copy(update={"outputs": {"savings_balance": misaimed}}),
+        {"member_id": "M-101"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert "7 characters" in result.observed
+    assert "money" in result.observed
+    assert "Hilltop" not in result.observed
+    assert "Hilltop" not in run_dir.log_path.read_text()

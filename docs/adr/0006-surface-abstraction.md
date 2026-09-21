@@ -27,26 +27,50 @@ to describe in one sentence.
 exposes one Protocol:
 
 ```
-observe() -> Observation            frames, ARIA tree per frame, masked screenshot, dialog text
-resolve(TargetRef) -> index         which candidate won, or TargetNotFound with what was tried
-act(ActionType, TargetRef, value)   navigate, click, type, select
-read(TargetRef) -> text
+observe(screenshot_to) -> Observation   frames, ARIA tree per frame, masked screenshot, dialog text
+take_dialogs() -> [NativeDialog]        the native dialogs raised since the last ask
+resolve(TargetRef) -> index             which candidate won, or TargetNotFound with what was tried
+inspect(TargetRef) -> Inspection        resolve and describe, without touching it
+act(ActionType, TargetRef, value)       navigate, click, type, select
+read(TargetRef) -> ReadResult
 holds(StateAssertion) -> bool
 fingerprint() -> AppFingerprint
-start_trace / stop_trace
-idle(ms), watch_human, unwatch_human
+start_trace() / stop_trace(path)
+idle(ms)
+watch_human(on_action) / unwatch_human()
 ```
+
+Thirteen methods. Two of them are here for reasons worth stating.
+
+`inspect` exists so the policy is asked about the control that actually
+resolved rather than the name the artifact recorded for it. The two differ
+exactly when a later candidate won, and a structural candidate can land on a
+control the recording never named.
+
+`take_dialogs` is taken off the surface rather than returned from `act()`,
+because a dialog can fire after the click returns, during the load that
+follows. The demo app raises one of each: a confirm from the link's own
+onclick, and an alert written into the page the click navigates to. A
+return value from `act()` could carry the first and never the second. A
+caller that asks once the step's wait has settled gets both. The listener
+that answers them lives in the implementation and answers at once; ADR-0003
+has the measurement that says it has to.
 
 Discovery, compile, replay and control talk to that and nothing else.
 The artifact stores only what the Protocol takes: semantic targets
-(role, name, label, text, structural path, bounding box, frame path) and
-state assertions (URL pattern, visible text, visible target). No
-Playwright handle, selector object or snapshot ref is ever persisted.
+(role, name, label, text, row label, structural path, bounding box, frame
+path) and state assertions (URL pattern, visible text, visible target). No
+Playwright handle and no snapshot ref is ever persisted. One string is not
+portable yet: a row-label candidate is written as
+`th:text-is("Savings balance") + td`, and `:text-is()` is Playwright's own
+pseudo-class. ADR-0002 has the paragraph on it and the strategy that would
+replace it.
 
 `ElementFacts`, what the surface reports about an element it acted on,
 is the compiler's only input for building candidates. It is computed
-in one browser-side evaluation: role, accessible name, label, text,
-row header, structural path, bounding box.
+in one browser-side evaluation: role, accessible name, label, text, the
+text that labels the row and the tag that carried it, structural path,
+bounding box.
 
 Test suites that need a browser share one Chromium and one demo app
 per session, because the sync Playwright client allows one driver per
@@ -62,7 +86,8 @@ thread.
   tracing): the moment one module reaches around the seam, the desktop
   story is gone.
 - A generic "driver" interface with dozens of methods: the artifact
-  only needs the nine above.
+  only needs the thirteen above, and each one was added because a
+  caller could not be written without it.
 
 ## Consequences
 

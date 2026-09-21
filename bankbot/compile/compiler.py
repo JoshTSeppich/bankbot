@@ -8,6 +8,14 @@ URL changes the model caused become wait_for patterns with the parameter
 values generalised. Known outcomes and recoveries come from the spec,
 because one run shows the model only the happy path.
 
+Generalising a URL is string replacement over the recorded path, so a
+parameter value that appears anywhere in it becomes a wildcard, not only in
+the segment that is the record. On this app M-100 appears once; on an app
+that numbers branches the same way, a member id inside a branch segment would
+be generalised too. The result is a wait_for that is looser than it should
+be, never one that is tighter, so it costs a failed assertion that would have
+caught something rather than a wrong answer.
+
 Does not own: talking to the model (discover/) or executing the result
 (replay/).
 

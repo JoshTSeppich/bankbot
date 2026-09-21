@@ -7,6 +7,14 @@ templates take a Variant as input. Governed by ADR-0006.
 Variant B exists so the evidence can show a capability recorded on A
 replaying on B with a later locator candidate winning (drift), and the
 fingerprint check noticing the version change.
+
+The three differences are chosen to make the three signals separable, not to
+make the run pass. The renamed button is what a later candidate has to catch,
+and it raises drift_warning. The version string is what the fingerprint
+catches, and it raises variant_mismatch. The screen's shape is deliberately
+unchanged, distance 0, because a renamed button is the same screen and a
+measure that said otherwise would be the wrong measure. The extra column is
+there so the results table is not identical either.
 """
 
 from dataclasses import dataclass

@@ -3,9 +3,18 @@
 Owns: the Faults model the admin endpoint accepts, the request counter that
 decides when a fault fires, and the once-only bookkeeping. Does not own: what
 a fault looks like on the page (templates) or which routes count (app.py
-attaches the counter to the /members/... routes only). Governed by ADR-0006:
-the faults exist to give replay and the operator handoff something real to
-recover from.
+attaches the counter to the /members/... routes only).
+
+The counting rule is the whole design of `--fault session_expiry_at_step=3`:
+the number has to mean the replay's third step, so exactly the requests a
+step makes are counted. Login is not, because logging in is a declared
+recovery and runs a different number of times depending on the run. The
+iframe fetch is not, because the browser makes it on its own. The admin
+endpoint is not, because arming a fault would otherwise move the count it
+just set.
+
+Governed by ADR-0006: the faults exist to give replay and the operator
+handoff something real to recover from.
 """
 
 import os

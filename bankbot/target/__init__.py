@@ -10,7 +10,10 @@ version string, so drift and variant detection have something to detect.
 
 Does not own: anything the automation knows about. No route, template or
 attribute here exists because a locator wants it. The automation only ever
-sees this app the way a human teller would.
+sees this app the way a human teller would. That rule is a claim, so it is
+pinned: tests/target/test_hygiene.py checks that no element carries an id or
+a test id, that every page lays itself out with tables, and that no page or
+source file holds a nine- or sixteen-digit run.
 
 Governed by ADR-0006 (surface abstraction): the app exists to give the
 surface something hostile enough to prove the abstraction earns its keep.

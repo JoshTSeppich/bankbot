@@ -1,4 +1,4 @@
-# The same four gates the pre-commit hook runs, plus a Chromium install so the
+# The same gates the pre-commit hook runs, plus a Chromium install so the
 # surface tests can drive the demo app. One job, so a red badge means one thing.
 name: ci
 
@@ -21,3 +21,4 @@ jobs:
       - run: uv run ruff check
       - run: uv run mypy --strict
       - run: uv run pytest
+      - run: make verify-evidence

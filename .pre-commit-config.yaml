@@ -34,6 +34,19 @@ repos:
         types: [python]
         pass_filenames: false
 
+      # Runs on every commit, not only when a file under evidence/ is staged.
+      # The problem this catches is the opposite shape: the redactor improved,
+      # the committed traces did not, and nothing under evidence/ changed for a
+      # file filter to notice. It calls the same make target the README points a
+      # reviewer at, which provisions .env so the redactor knows the demo
+      # credentials; without them the check silently weakens to pattern matching.
+      - id: verify-evidence
+        name: verify evidence
+        entry: make verify-evidence
+        language: system
+        always_run: true
+        pass_filenames: false
+
       # CLAUDE.md calls a 72-character subject non-negotiable and fifteen
       # earlier subjects ran past it. pygrep --negate fails the commit when the
       # message does NOT match, so the pattern has to accept the whole subject

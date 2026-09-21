@@ -257,7 +257,12 @@ class Surface(Protocol):
         ...
 
     def fingerprint(self) -> AppFingerprint:
-        """Identify the app build, so replay can refuse a variant it was not recorded on."""
+        """Identify the app build, so replay can say this is not the build it was recorded on.
+
+        It says so and goes on. `variant_mismatch` is a warning, never a
+        refusal: a renamed button is a different build and the same screen
+        (ADR-0002).
+        """
         ...
 
     def start_trace(self) -> None:

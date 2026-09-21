@@ -119,3 +119,13 @@ discovery transcript stores every ARIA snapshot the model saw, member
 names and balances included. The demo data is fictional; a real
 deployment would need mask selectors for every member-data field and a
 transcript that stores less than the model saw.
+
+Residual: a kept trace holds the application's session cookie. The redactor
+masks values it was told about, the credentials in the environment and the
+run's parameters, and a cookie the application mints at run time is neither.
+Nothing in the code knows it is a credential. It leaks nothing here, because
+the app is in this repo and its login is published in `.env.example`, so
+anyone can mint an equivalent one. On a real deployment it would matter, and
+the fix is a list of cookie names in `policy.yaml` beside `mask_selectors`.
+Not built. `tests/replay/test_replay.py` proves a kept trace holds no
+credential the redactor was given, which is narrower than it sounds.

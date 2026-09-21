@@ -96,8 +96,16 @@ first, and that is mocked and named as such in the README.
 ## Consequences
 
 Easier: the handoff is testable end to end in one process with a fake
-person on the engine thread. Evidence run 5 is that test with a real
-person.
+person on the engine thread; `tests/control/test_handoff.py` is that test,
+and it drives a real browser on every commit.
+
+Evidence run 5 is the same machinery with a real person on the operator
+page: take control, mark the step complete, the engine checking the step's
+`wait_for` and disagreeing, take control again, abort. It is the run I would
+show first, because step three is the engine refusing to take a person's word
+for it. A person who works only from the operator page leaves no
+`human_action` events, since those are reported by the browser; the test is
+what covers those.
 
 Harder: the engine thread owns Playwright, so a person's actions can
 only be observed, never scripted from the operator thread. Every test

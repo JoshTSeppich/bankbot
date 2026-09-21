@@ -7,8 +7,10 @@ browser, starting the operator pages when a person can see the browser
 
 The one thing this file decides is whose fault a stop is. A condition of the
 world the caller can fix is one line on stderr and exit 2; a run that started
-and ended badly is exit 1; anything else is a bug in bankbot and keeps its
-traceback. tests/test_cli.py covers that judgement and nothing else here.
+and ended badly is exit 1; `--times` runs that hash differently are exit 3,
+because no run failed and what broke is the claim that they agree; anything
+else is a bug in bankbot and keeps its traceback. tests/test_cli.py covers
+that judgement and nothing else here.
 
 Does not own: the work. discover/, compile/, replay/ and control/ do it;
 this file passes them to each other.
@@ -70,6 +72,7 @@ TARGET_PROBE_TIMEOUT_S = 2.0
 EXIT_OK = 0
 EXIT_RUN_FAILED = 1
 EXIT_CALLER_ERROR = 2
+EXIT_RUNS_DISAGREE = 3
 
 
 class CapabilityFileMissing(Exception):
@@ -194,7 +197,10 @@ def build_parser() -> argparse.ArgumentParser:
     replay_cmd.add_argument("--keep-trace", action="store_true")
     replay_cmd.add_argument("--variant", choices=sorted(VARIANT_PREFIXES), default="a")
     replay_cmd.add_argument(
-        "--times", type=int, default=1, help="repeat in fresh browsers; prints one hash per run"
+        "--times",
+        type=int,
+        default=1,
+        help="repeat in fresh browsers; runs that hash differently fail the command",
     )
     _add_run_options(replay_cmd)
 
@@ -300,6 +306,7 @@ def _replay(args: argparse.Namespace) -> int:
     registry = RunRegistry()
     operator_started = False
     exit_code = EXIT_OK
+    hashes: dict[str, str] = {}
     with running_target(args.base_url) as target:
         base_url = target + VARIANT_PREFIXES[args.variant]
         for run_id in _run_ids(args.run_id or new_run_id(), args.times):
@@ -338,10 +345,19 @@ def _replay(args: argparse.Namespace) -> int:
                 if controller is not None:
                     controller.finish(result.kind)
             print(json.dumps(REPLAY_RESULT_ADAPTER.dump_python(result, mode="json"), indent=2))
-            print(f"event sequence: {event_sequence_hash(read_events(run_dir))}")
+            hashes[run_id] = event_sequence_hash(read_events(run_dir))
+            print(f"event sequence: {hashes[run_id]}")
             print(f"run directory: {run_dir.path}", file=sys.stderr)
             if not (isinstance(result, Success) or result.kind == "outcome"):
                 exit_code = EXIT_RUN_FAILED
+    if len(set(hashes.values())) > 1:
+        print("error: these runs did not do the same things", file=sys.stderr)
+        for run_id, digest in hashes.items():
+            print(f"  {run_id}: {digest}", file=sys.stderr)
+        # A run that failed is a fact about one run and is the thing to fix
+        # first, so it keeps the exit code when both are true.
+        if exit_code == EXIT_OK:
+            exit_code = EXIT_RUNS_DISAGREE
     return exit_code
 
 

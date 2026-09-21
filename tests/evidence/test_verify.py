@@ -17,13 +17,12 @@ def redactor() -> Redactor:
     return Redactor(secret_values=[SECRET])
 
 
-@pytest.fixture
-def good_run(tmp_path: Path, redactor: Redactor) -> RunDir:
-    """A run directory as the system writes it: a log, a result, and the screenshot it names."""
-    run = RunDir.create(tmp_path / "evidence", "02-replay-success")
+def write_run(root: Path, run_id: str, redactor: Redactor, step_id: str = "open_start") -> RunDir:
+    # A run directory as the system writes it: a log, a result, and the screenshot it names.
+    run = RunDir.create(root, run_id)
     writer = EvidenceWriter(run, redactor)
     writer.event(Event.RUN_STARTED, capability="lookup_savings_balance")
-    writer.event(Event.STEP_DONE, step_id="open_start")
+    writer.event(Event.STEP_DONE, step_id=step_id)
     run.screenshot_path("final").write_bytes(b"png")
     writer.save_result(
         Success(
@@ -33,6 +32,11 @@ def good_run(tmp_path: Path, redactor: Redactor) -> RunDir:
     )
     writer.event(Event.RUN_FINISHED, kind="success")
     return run
+
+
+@pytest.fixture
+def good_run(tmp_path: Path, redactor: Redactor) -> RunDir:
+    return write_run(tmp_path / "evidence", "02-replay-success", redactor)
 
 
 def test_a_run_directory_as_the_system_writes_it_passes(
@@ -123,4 +127,16 @@ def test_verify_evidence_reports_a_log_that_never_finished(
     problems = verify_evidence(good_run.path.parent, redactor)
     assert problems == [
         "02-replay-success/log.jsonl: the last event is 'step_done', so the run never finished"
+    ]
+
+
+def test_a_repeat_run_whose_event_sequence_differs_from_the_first_is_one_problem(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    write_run(good_run.path.parent, "02-replay-success-2", redactor, step_id="click_search")
+    hashes = sequence_hashes(good_run.path.parent)
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert problems == [
+        f"02-replay-success-2: event sequence {hashes['02-replay-success-2']} "
+        f"differs from 02-replay-success {hashes['02-replay-success']}"
     ]

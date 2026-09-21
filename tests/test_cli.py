@@ -200,3 +200,50 @@ def test_compile_of_a_run_that_never_finished_is_a_caller_error(
     assert cli.main(["compile", str(run)]) == 2
     assert "intervention_aborted" in capsys.readouterr().err
     assert not (run / "capability.json").exists()
+
+
+def test_replay_times_names_both_runs_and_both_hashes_when_they_disagree(
+    bare_environment: None,
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    for name, value in TEST_SECRETS.items():
+        monkeypatch.setenv(name, value)
+    # The smallest difference two runs of one capability can have on this app:
+    # the second one is sent through the session-expiry recovery, which it
+    # survives, so both runs succeed and only the log tells them apart.
+    per_run = iter([{}, {"session_expiry_at_step": "3"}])
+    arm = cli.arm_faults
+
+    def arm_the_second_run_only(target: str, faults: dict[str, str]) -> None:
+        arm(target, next(per_run))
+
+    monkeypatch.setattr(cli, "arm_faults", arm_the_second_run_only)
+    code = _cli_with_its_own_browser(
+        [
+            "replay",
+            str(FIXTURE),
+            "--param",
+            "member_id=M-100",
+            "--base-url",
+            base_url,
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--run-id",
+            "pair",
+            "--times",
+            "2",
+        ]
+    )
+    printed = capsys.readouterr()
+    hashes = [
+        line.removeprefix("event sequence: ")
+        for line in printed.out.splitlines()
+        if line.startswith("event sequence: ")
+    ]
+    assert code == cli.EXIT_RUNS_DISAGREE
+    assert len(set(hashes)) == 2, "the two runs were meant to differ"
+    assert f"  pair: {hashes[0]}" in printed.err
+    assert f"  pair-2: {hashes[1]}" in printed.err

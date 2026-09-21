@@ -4,8 +4,9 @@ Owns: verify_evidence, which walks every run directory under a root and
 reports what is wrong with it: a log line that does not parse or names an
 event the code does not emit, a log that stops before the run finished, a
 result or capability or transcript that fails its schema, a screenshot a
-file points at that is not there, and any line or trace member that still
-carries a secret or something shaped like member PII.
+file points at that is not there, any line or trace member that still
+carries a secret or something shaped like member PII, and a repeat of a run
+whose event sequence does not match the first run's.
 
 This module imports the policy's redaction rules on purpose. The writer
 never does (it is handed a redactor, so evidence/ does not depend on
@@ -50,6 +51,8 @@ SCREENSHOT_FIELD = "screenshot"
 # longer parses is how a redactor that cut too much would show up.
 JSON_LINE_MEMBERS = (".trace", ".network")
 FINISHED_EVENTS = (Event.RUN_FINISHED, Event.DISCOVERY_FINISHED)
+# `--times` numbers the repeats of run X from 2: X, X-2, X-3.
+FIRST_REPEAT = 2
 
 
 def verify_evidence(root: Path, redactor: Redactor) -> list[str]:
@@ -69,6 +72,7 @@ def verify_evidence(root: Path, redactor: Redactor) -> list[str]:
         problems.extend(_check_json_files(run))
         problems.extend(_check_text_lines(run, redactor))
         problems.extend(_check_trace(run, redactor))
+    problems.extend(_check_repeat_runs(root))
     return problems
 
 
@@ -79,6 +83,27 @@ def sequence_hashes(root: Path) -> dict[str, str]:
         for path in sorted(root.iterdir())
         if path.is_dir() and (path / LOG_FILE).exists()
     }
+
+
+def _check_repeat_runs(root: Path) -> Iterator[str]:
+    """`--times` writes X, X-2, X-3; those runs claim to be the same run, so make them prove it.
+
+    The run id is the whole rule. `_run_ids` in the CLI is what produces the
+    `X-N` names, and nothing else under evidence/ is named that way, so a
+    repeat needs no extra field on disk to be recognised as one.
+    """
+    try:
+        hashes = sequence_hashes(root)
+    except json.JSONDecodeError:
+        # A log that does not parse has already been reported line by line,
+        # and the hash of half a log would say nothing about the other run.
+        return
+    for run_id, digest in hashes.items():
+        first, _, repeat = run_id.rpartition("-")
+        if not repeat.isdigit() or int(repeat) < FIRST_REPEAT:
+            continue
+        if first in hashes and hashes[first] != digest:
+            yield (f"{run_id}: event sequence {digest} differs from {first} {hashes[first]}")
 
 
 def _check_log(run: RunDir) -> Iterator[str]:

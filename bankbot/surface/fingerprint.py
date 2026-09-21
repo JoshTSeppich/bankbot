@@ -13,7 +13,7 @@ browser does for pages without scripted focus.
 Why this and not a hash of the ARIA tree: a hash answers "identical or
 not", and on a bank app the answer is always "not" the moment a member
 name or a balance differs. A distance says how different, in units a
-person can read: a renamed button is 0, an extra column is 1, a different
+person can read: a renamed button is 0, an extra focusable control is 1, a different
 page is most of the sequence.
 
 Controls inside a dialog or alertdialog are not part of the sequence. A

@@ -38,7 +38,7 @@ exported as JSON Schema under `docs/schema/`.
 | Finding a control | `TargetRef` is an ordered list of `Candidate` with strategy, value, confidence and reasoning, plus `frame_path` | ADR-0002. |
 | Error taxonomy in data | `outcomes[]`, `recoveries[]`, per-step `on_fail` | ADR-0003. Replay's behaviour on a known condition is in the artifact, not in engine code. |
 | Provenance | `created_from_run` carries model id, SDK versions, timestamps and the API request ids | The evidence in the repo can be tied to real model calls. |
-| Drift detection | `app.fingerprint`: title, version string, hash of the start screen's ARIA tree | Replay warns `variant_mismatch` before acting. |
+| Drift detection | `app.fingerprint`: title, version string, the tab sequence of the start screen, compared by edit distance (ADR-0002) | Replay warns `variant_mismatch` before acting. |
 | Multi-tenant hook | `app.variant` plus semver `version` | The seam a per-tenant overlay would key on. Nothing in this build reads it. |
 | Unattended use | `approval: draft \| approved`; `risk: safe \| risky` | Replay asks a human before a risky step unless the artifact is approved. |
 

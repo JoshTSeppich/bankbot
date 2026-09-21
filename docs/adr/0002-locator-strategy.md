@@ -38,10 +38,10 @@ frame it lives in. A later candidate winning is the drift signal.
 | Drift | `candidate_index > 0` logs `target_resolved` with the index and adds a `drift_warning` to the result | The run goes on. The warning is what tells a maintainer the recording is ageing. |
 | Record-named links | A link whose text was not on the start screen is page data: its results-row position ranks first, its name last | The name finds the recorded member and nobody else. Ranking it first raised a meaningless drift warning on every other member. |
 | Variant | Title and version string checked before the first step; each key screen's shape measured the first time replay lands on it | A different build of the app is a different signal from one control moving. `variant_mismatch` is a warning, not a stop. |
-| Screen shape | Lantern's method: the ordered (role, state bitmap, landmark) tuples a person meets tabbing through the screen, compared by edit distance, threshold in `policy.yaml`. Controls inside a dialog are left out: a modal overlay is state, not shape | A hash says "identical or not", and a bank page is never identical once a name differs. A distance says how different, in controls: a renamed button is 0, an extra column is 1. The number is logged every time. |
+| Screen shape | Lantern's method: the ordered (role, state bitmap, landmark) tuples a person meets tabbing through the screen, compared by edit distance, threshold in `policy.yaml`. Controls inside a dialog are left out: a modal overlay is state, not shape | A hash says "identical or not", and a bank page is never identical once a name differs. A distance says how different, in controls: a renamed button is 0, an extra focusable control is 1. The number is logged every time. |
 
 Evidence run 7 shows the signals on variant B: the Search button is
-renamed, so candidate 1 (its label) resolves and `drift_warning` is
+renamed, so candidate 1 (its structural path) resolves and `drift_warning` is
 raised; the version string differs, so `variant_mismatch` is raised; and
 the search screen measures a distance of 0 out of 2, because a renamed
 button is the same shape. The shape measure is a port of Lantern

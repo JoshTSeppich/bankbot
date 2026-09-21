@@ -15,6 +15,8 @@ uv run pytest
 
 The tests start the demo bank app and a headless Chromium themselves. Nothing else needs to be running. No key is needed for anything except discovery.
 
+`make review` is the whole gate in one command: format, lint, `mypy --strict`, the test suite, the evidence check, and one replay against the committed capability. It is what runs before every commit and it needs no key.
+
 To run discovery, copy `.env.example` to `.env` and set `ANTHROPIC_API_KEY`. Every other variable has a working default.
 
 ## Demo path

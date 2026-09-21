@@ -4,7 +4,7 @@ CAP      ?= evidence/01-discovery/capability.json
 CLI       = uv run python -m bankbot.cli
 EVIDENCE  = --runs-dir evidence --keep-trace
 
-.PHONY: test lint discover replay replay-notfound replay-expiry replay-dialog replay-variant-b \
+.PHONY: review test lint discover replay replay-notfound replay-expiry replay-dialog replay-variant-b \
         operator demo verify-evidence \
         evidence-01 evidence-02 evidence-03 evidence-04 evidence-05 evidence-06 evidence-07
 
@@ -17,6 +17,11 @@ EVIDENCE  = --runs-dir evidence --keep-trace
 # CLI still reads every secret from the environment.
 .env:
 	cp .env.example .env
+
+# One command for a reviewer with a fresh clone and no API key. It runs
+# everything the pre-commit hook runs, then one replay, because a suite that
+# passes is not the same claim as the system working. `replay` needs no key.
+review: lint test verify-evidence replay
 
 test:
 	uv run pytest

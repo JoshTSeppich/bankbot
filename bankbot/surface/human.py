@@ -6,6 +6,13 @@ never carried: an input event reports only that a value changed and which
 field it was. Navigations come from Playwright's own framenavigated event,
 so a page the person moved to is recorded even when no script ran on it.
 
+The gap: the reporting script is injected per frame, so a click in the
+instant between a navigation committing and the script re-attaching is not
+recorded. The navigation itself always is, so the log shows where the person
+went even when it misses what they did on arrival. That is the same shape as
+the hole in tests/control/test_handoff.py:148, where a person reaches a
+guarded record by typing its URL.
+
 Does not own: when recording is on (the controller decides) or where the
 records go (the controller writes them to evidence).
 

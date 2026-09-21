@@ -5,6 +5,14 @@ Protocol, and the typed errors. Nothing here imports Playwright. A second
 implementation (a desktop accessibility surface, ADR-0006) would import this
 file unchanged and return the same shapes.
 
+The Protocol has one implementation, which usually means an abstraction that
+has not earned itself. It earns itself here by constraining the artifact
+rather than by swapping implementations: a field may only reach disk if some
+method on this Protocol takes it, which is what keeps a Playwright selector
+out of a capability. ADR-0006's Alternatives rejected has the argument, and
+the method count is the evidence for it: each of the thirteen was added
+because a caller could not be written without it.
+
 Does not own: any behaviour, and nothing about what an artifact means.
 
 Governed by ADR-0006 (surface abstraction) and ADR-0002 (locator strategy).

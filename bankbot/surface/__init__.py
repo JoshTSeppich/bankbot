@@ -1,7 +1,8 @@
 """The surface: the only module in the repo that touches a browser.
 
-Owns: the Surface protocol (observe, resolve, act, read, holds, fingerprint,
-trace) and its one implementation, PlaywrightSurface. Frame traversal,
+Owns: the Surface protocol (thirteen methods, of which observe, resolve,
+inspect, act, read, holds, take_dialogs and fingerprint are the ones callers
+reach for) and its one implementation, PlaywrightSurface. Frame traversal,
 candidate resolution in ranked order, ARIA snapshots, screenshots with
 sensitive fields blurred before capture, and the facts about an element the
 compiler needs to describe it again later.

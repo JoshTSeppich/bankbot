@@ -4,6 +4,12 @@ Owns: observe, resolve, act, read, holds, fingerprint and tracing against a
 live browser page, and the masking of sensitive fields before a screenshot
 is taken.
 
+One page, and that is a limit worth naming: the native-dialog listener is
+registered on the page handed in, so a dialog raised by a popup or a second
+tab is never seen and never answered. The demo app opens neither, and a real
+one that did would need a listener per page and a rule for which page the
+step belongs to.
+
 Does not own: deciding what to do, what an artifact means, or launching the
 browser (the CLI opens the page and hands it in).
 

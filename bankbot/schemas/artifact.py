@@ -78,6 +78,11 @@ class StateAssertion(StrictModel):
     matchers of known outcomes and recoveries. Every listed condition must
     hold. I reject an assertion with no condition because it would pass
     vacuously and hide an artifact bug.
+
+    url_pattern is matched against the URL's path, never the whole URL. The
+    rest of the design already draws that line: navigate steps store paths
+    and the policy matches paths. The query string is the record being
+    looked at, not the screen it is on.
     """
 
     description: str

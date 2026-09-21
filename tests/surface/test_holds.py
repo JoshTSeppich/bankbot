@@ -56,3 +56,15 @@ def test_holds_sees_a_control_inside_the_iframe(
     )
 
     assert surface.holds(search_form)
+
+
+def test_a_url_pattern_holds_on_a_url_that_carries_a_query_string(
+    surface: PlaywrightSurface, signed_in_page: Page, base_url: str
+) -> None:
+    signed_in_page.goto(f"{base_url}/members/profile?member=M-100")
+    profile = StateAssertion(
+        description="the member profile is open",
+        url_pattern=r"/members/profile$",
+    )
+
+    assert surface.holds(profile, timeout_ms=1000)

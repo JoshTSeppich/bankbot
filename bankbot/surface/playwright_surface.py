@@ -14,7 +14,7 @@ import re
 import time
 from collections.abc import Sequence
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Locator, Page
@@ -287,7 +287,7 @@ class PlaywrightSurface:
     def _holds_now(self, assertion: StateAssertion) -> bool:
         try:
             if assertion.url_pattern is not None and (
-                re.search(assertion.url_pattern, self._page.url) is None
+                re.search(assertion.url_pattern, urlparse(self._page.url).path) is None
             ):
                 return False
             if assertion.text_visible is not None and not self._text_visible(

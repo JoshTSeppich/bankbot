@@ -472,7 +472,7 @@
     },
     "StateAssertion": {
       "additionalProperties": false,
-      "description": "A checkable claim about the page.\n\nUsed for preconditions, step waits, the success checkpoint, and the\nmatchers of known outcomes and recoveries. Every listed condition must\nhold. I reject an assertion with no condition because it would pass\nvacuously and hide an artifact bug.",
+      "description": "A checkable claim about the page.\n\nUsed for preconditions, step waits, the success checkpoint, and the\nmatchers of known outcomes and recoveries. Every listed condition must\nhold. I reject an assertion with no condition because it would pass\nvacuously and hide an artifact bug.\n\nurl_pattern is matched against the URL's path, never the whole URL. The\nrest of the design already draws that line: navigate steps store paths\nand the policy matches paths. The query string is the record being\nlooked at, not the screen it is on.",
       "properties": {
         "description": {
           "title": "Description",

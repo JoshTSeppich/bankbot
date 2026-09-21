@@ -4,9 +4,16 @@ Owns: verify_evidence, which walks every run directory under a root and
 reports what is wrong with it: a log line that does not parse or names an
 event the code does not emit, a log that stops before the run finished, a
 result or capability or transcript that fails its schema, a screenshot a
-file points at that is not there, any line or trace member that still
-carries a secret or something shaped like member PII, and a repeat of a run
-whose event sequence does not match the first run's.
+file points at that is not there, an output_extracted line carrying the value
+it read, any line or trace member that still carries a secret or something
+shaped like member PII, and a repeat of a run whose event sequence does not
+match the first run's.
+
+A test walks the source and proves no call site logs an extracted value
+(tests/evidence/test_events.py). This asks a different question of the bytes
+on disk: a directory written by an older build, or committed before that rule
+existed, passes the source walk and is still sitting in the repo with a
+member's balance in it.
 
 This module imports the policy's redaction rules on purpose. The writer
 never does (it is handed a redactor, so evidence/ does not depend on
@@ -47,6 +54,9 @@ LEAK_PATTERNS = {
     "workspace id": re.compile(r"wrkspc_"),
 }
 SCREENSHOT_FIELD = "screenshot"
+# The output's name is the record of the route the run took; what it said
+# belongs in result.json and nowhere else. Any other key on the line is fine.
+VALUE_FIELD = "value"
 # Trace members Playwright writes as one JSON object per line. A line that no
 # longer parses is how a redactor that cut too much would show up.
 JSON_LINE_MEMBERS = (".trace", ".network")
@@ -129,6 +139,8 @@ def _check_log(run: RunDir) -> Iterator[str]:
         except ValueError:
             yield f"{where}: timestamp is not ISO-8601: {event.get(TIMESTAMP_FIELD)!r}"
         yield from _check_screenshot(run, where, event.get(SCREENSHOT_FIELD))
+        if event.get("event") == Event.OUTPUT_EXTRACTED and VALUE_FIELD in event:
+            yield f"{where}: an {Event.OUTPUT_EXTRACTED} line carries the value it read"
         last_event = str(event.get("event"))
     # A log that stops anywhere else is a run that died with its evidence
     # half written, so what it does say cannot be trusted as the whole story.

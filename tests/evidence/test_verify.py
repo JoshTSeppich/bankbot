@@ -140,3 +140,40 @@ def test_a_repeat_run_whose_event_sequence_differs_from_the_first_is_one_problem
         f"02-replay-success-2: event sequence {hashes['02-replay-success-2']} "
         f"differs from 02-replay-success {hashes['02-replay-success']}"
     ]
+
+
+def test_an_output_extracted_line_that_carries_its_value_is_reported(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    # What an older build wrote, and what is still sitting in a directory
+    # committed before the rule existed. The source walk in test_events.py
+    # cannot see it; only the bytes on disk can.
+    was = good_run.log_path.read_text(encoding="utf-8").splitlines()
+    stale = json.dumps(
+        {
+            "ts": "2026-09-19T10:00:00+00:00",
+            "event": Event.OUTPUT_EXTRACTED.value,
+            "output": "savings_balance",
+            "value": "4242.00",
+        }
+    )
+    good_run.log_path.write_text("\n".join([*was[:-1], stale, was[-1]]) + "\n", encoding="utf-8")
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert problems == [
+        "02-replay-success/log.jsonl:3: an output_extracted line carries the value it read"
+    ]
+
+
+def test_an_output_extracted_line_naming_only_the_output_passes(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    was = good_run.log_path.read_text(encoding="utf-8").splitlines()
+    named = json.dumps(
+        {
+            "ts": "2026-09-19T10:00:00+00:00",
+            "event": Event.OUTPUT_EXTRACTED.value,
+            "output": "savings_balance",
+        }
+    )
+    good_run.log_path.write_text("\n".join([*was[:-1], named, was[-1]]) + "\n", encoding="utf-8")
+    assert verify_evidence(good_run.path.parent, redactor) == []

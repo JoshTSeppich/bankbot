@@ -8,9 +8,9 @@ from bankbot.policy import Redactor
 PACKAGE = Path(__file__).parent.parent.parent / "bankbot"
 
 
-def event_call_first_args() -> list[tuple[str, int, ast.expr]]:
-    """Every `<something>.event(...)` call in the package with its first argument."""
-    found: list[tuple[str, int, ast.expr]] = []
+def event_calls() -> list[tuple[str, int, ast.Call]]:
+    """Every `<something>.event(...)` call in the package, with where it is written."""
+    found: list[tuple[str, int, ast.Call]] = []
     for source in PACKAGE.rglob("*.py"):
         tree = ast.parse(source.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -20,15 +20,16 @@ def event_call_first_args() -> list[tuple[str, int, ast.expr]]:
                 and node.func.attr == "event"
                 and node.args
             ):
-                found.append((str(source.relative_to(PACKAGE)), node.lineno, node.args[0]))
+                found.append((str(source.relative_to(PACKAGE)), node.lineno, node))
     return found
 
 
 def test_every_writer_event_call_site_names_a_member_of_the_event_enum() -> None:
-    calls = event_call_first_args()
+    calls = event_calls()
     assert len(calls) > 20, "the walk found fewer call sites than the package has"
     offenders = []
-    for path, line, first in calls:
+    for path, line, call in calls:
+        first = call.args[0]
         is_member = (
             isinstance(first, ast.Attribute)
             and isinstance(first.value, ast.Name)
@@ -38,6 +39,19 @@ def test_every_writer_event_call_site_names_a_member_of_the_event_enum() -> None
         if not is_member:
             offenders.append(f"{path}:{line}")
     assert offenders == []
+
+
+def test_an_output_extracted_line_names_the_output_and_never_the_value() -> None:
+    # The value is a member's balance. result.json is the file it belongs in;
+    # log.jsonl is committed as evidence and is what a reviewer reads first.
+    sites = [
+        call
+        for _, _, call in event_calls()
+        if isinstance(call.args[0], ast.Attribute)
+        and call.args[0].attr == Event.OUTPUT_EXTRACTED.name
+    ]
+    assert len(sites) == 1, "the walk found no output_extracted call site"
+    assert [[keyword.arg for keyword in call.keywords] for call in sites] == [["output"]]
 
 
 def test_a_log_lines_timestamp_is_iso_8601_and_survives_redaction(tmp_path: Path) -> None:

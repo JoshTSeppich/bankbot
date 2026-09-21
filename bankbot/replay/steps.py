@@ -254,7 +254,10 @@ class StepRunner:
                 f"{len(read.text)} characters that do not parse as {spec.type}",
                 InterventionReason.CHECKPOINT_UNMET,
             ) from unreadable
-        self.writer.event(Event.OUTPUT_EXTRACTED, output=name, value=value)
+        # The name, not the value. log.jsonl is committed as evidence and read
+        # by anyone; result.json is where the caller's answer belongs, and one
+        # place per value is the same rule the artifact follows.
+        self.writer.event(Event.OUTPUT_EXTRACTED, output=name)
         return Attempted(candidate_index=read.candidate_index, output_name=name, output_value=value)
 
     # --- what the page looks like right now, in words ----------------------

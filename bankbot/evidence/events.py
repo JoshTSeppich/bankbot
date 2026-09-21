@@ -56,9 +56,11 @@ class Event(StrEnum):
 def event_sequence_hash(events: Iterable[Mapping[str, object]]) -> str:
     """One sha256 over the run's events in order, timestamps stripped.
 
-    Everything else stays in, including which candidate resolved and what
-    was extracted, so two runs hash the same only when they took the same
-    path and saw the same things.
+    Everything else stays in, including which candidate resolved, so two
+    runs hash the same only when they took the same path. Not the values
+    read off the page: `output_extracted` logs the output's name and
+    result.json holds what it said. The hash is a claim about the route the
+    run took, not about the answer it came back with.
     """
     digest = hashlib.sha256()
     for event in events:

@@ -103,6 +103,7 @@ class Replay:
         self._recoveries_used: list[str] = []
         self._recovery_attempts: dict[str, int] = {}
         self._screens_checked: set[str] = set()
+        self._fingerprint_checked = False
         self._current_step: Step = capability.steps[0]
         self._pending_request: InterventionRequest | None = None
 
@@ -141,7 +142,6 @@ class Replay:
         opened = self._open_app()
         if opened is not None:
             return opened
-        self._check_fingerprint()
         unmet = self._ensure_preconditions()
         if unmet is not None:
             return unmet
@@ -154,6 +154,8 @@ class Replay:
                 return self._failure(steps[index], "an action the policy allows", str(blocked))
             if not isinstance(verdict, int):
                 return verdict
+            if index == 0:
+                self._check_fingerprint()
             index = verdict
         return self._finish()
 
@@ -391,9 +393,18 @@ class Replay:
     # --- signals that do not stop the run --------------------------------
 
     def _check_fingerprint(self) -> None:
+        """Compare the recorded build with the one on screen, once, on the start screen.
+
+        Discovery takes the fingerprint on the start screen. Replay opens a
+        signed-out browser, which lands on the login page, so asking before
+        the first step compares two different screens and warns on every
+        run. It is a warning and not a gate, so nothing is lost by it coming
+        after the login.
+        """
         recorded = self.capability.app.fingerprint
-        if recorded is None:
+        if recorded is None or self._fingerprint_checked:
             return
+        self._fingerprint_checked = True
         actual = self.surface.fingerprint()
         differences: list[str] = []
         if actual.title != recorded.title:

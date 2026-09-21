@@ -6,14 +6,7 @@ from bankbot.compile import compile_capability
 from bankbot.discover import ToolAction
 from bankbot.evidence import read_events
 from bankbot.policy import Policy
-from bankbot.schemas import (
-    Capability,
-    Failure,
-    LocatorStrategy,
-    Outcome,
-    Success,
-    WarningCode,
-)
+from bankbot.schemas import Capability, Failure, LocatorStrategy, Outcome, Success
 from tests.discover.conftest import ScriptedDecider, act, directory_spec, make_discovery
 from tests.replay.conftest import make_replay
 
@@ -67,9 +60,7 @@ def test_a_capability_recorded_on_one_member_returns_the_balance_of_the_member_a
     result = replay.run()
     assert isinstance(result, Success)
     assert result.outputs == {"savings_balance": "1050.25"}
-    # Not "no warnings": this run does raise variant_mismatch, because the fingerprint is
-    # still compared on the login page. That is 2.1 and it is not this fix's business.
-    assert WarningCode.DRIFT not in [warning.code for warning in result.warnings]
+    assert result.warnings == []
     resolved = [event for event in read_events(run_dir) if event["event"] == "target_resolved"]
     assert resolved and all(event["candidate_index"] == 0 for event in resolved), resolved
 

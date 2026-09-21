@@ -33,17 +33,51 @@ end state that is an answer, not a fault. `Failure` carries the step,
 what was expected, what was observed, and the intervention request if a
 human was asked. All three point at the run directory.
 
-After every attempted step, replay asks four questions in a fixed order:
+After every attempted step, replay asks five questions in a fixed order:
 
 | Order | Question | Source | If yes |
 |---|---|---|---|
 | 1 | Does a known outcome match the page? | `outcomes[]` | End the run as `Outcome`. |
-| 2 | Does a known recovery match, or does the step name one? | `recoveries[]`, `on_fail: recover` | Run its steps, then retry, bounded by `max_attempts`. |
-| 3 | Does the step allow another go? | `on_fail: retry(n)` | Retry. |
-| 4 | Otherwise | | Ask a human. Unattended, the answer is abort and the run is a `Failure` carrying the request. |
+| 2 | Did the step raise a native dialog nobody recorded an answer to? | `surface.take_dialogs()` | Ask a human, reason `unknown_dialog`. The declared retries are not spent. |
+| 3 | Does a known recovery match, or does the step name one? | `recoveries[]`, `on_fail: recover` | Run its steps, then retry, bounded by `max_attempts`. |
+| 4 | Does the step allow another go? | `on_fail: retry(n)` | Retry. |
+| 5 | Otherwise | | Ask a human. Unattended, the answer is abort and the run is a `Failure` carrying the request. |
 
 Outcome is checked first so that a page saying "No member found" ends
 the run even when the step that got there technically succeeded.
+
+The dialog question sits at two, and the position is the decision. A page
+that already says "no member found" is still an answer, so the outcome check
+keeps its place above it. Everything below it assumes the click happened and
+something about the page is wrong. A dismissed confirm means it did not
+happen, so a recovery has nothing to recover from and a retry only asks the
+same question again. It goes straight to a person and the step's retries are
+left unspent.
+
+Every native dialog is answered the moment it opens, by one listener in the
+surface, and that is not a preference. While one is held open I measured
+`page.title()` and `locator.count()` hanging with no timeout of their own,
+and `screenshot()` and `aria_snapshot()` timing out. `observe()` uses all
+four. Keeping a dialog on screen for a person to look at would freeze every
+way this system has of looking at the page, including the screenshot the
+operator page is made of.
+
+So the answer is given first and classified afterwards. An alert is accepted
+and logged as `native_dialog`, and the step carries on: it had one possible
+answer and it was given. A confirm, a prompt or a beforeunload is dismissed,
+which is the vendor's own "No", and escalated as `unknown_dialog` carrying
+what was asked and what we answered.
+
+Two things this does not do, each a cut with a design behind it:
+
+- An outcome rule cannot match a dialog's message. `_matching_outcome` only
+  asks `surface.holds()` about the page, so a legacy app that says "No member
+  found" through `alert()` burns its retries and ends `checkpoint_unmet` with
+  the answer sitting in one log line. The design is a `matches` field that
+  can name a dialog message pattern as well as page state, checked against
+  the dialogs the step raised.
+- An operator cannot accept a confirm. ADR-0004 has the limit and the
+  single-use accept that fixes it.
 
 Errors are named after the condition: `TargetNotFound`, `MemberNotFound`
 as an outcome code, `SecretMissing`. Never after the mechanism.

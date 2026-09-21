@@ -61,6 +61,26 @@ step complete, checks the step's `wait_for` before trusting them.
 - Multi-operator, auth, a real console: out of scope. Mocked and named
   as such in the README.
 
+A confirm-guarded step can only end in abort, even with a person driving.
+The dialog listener is registered once, in the surface's constructor, and it
+answers for whoever raised the dialog. The operator's own click on the
+guarded control is dismissed the same way the engine's was. So hand back
+loops into the same click and the same confirm, and mark step complete
+cannot work either, because the person could not get past the confirm to
+complete it. Today the only honest exit is abort.
+
+The fix is not a longer-lived dialog: ADR-0003 has the measurement that says
+a dialog held open freezes the surface. It is a single-use accept. A step
+gains an `on_dialog` expectation holding the dialog type, a pattern the
+message must match, and the answer to give. The policy treats a step with
+one as risky, so an unattended run asks a person before the step rather than
+after the dialog. The approval arms the listener to accept exactly once, for
+exactly that step, and it is recorded like any other approval: one attempt,
+cleared on a recovery rewind, in the log with who gave it. An artifact can
+then carry "this vendor asks 'Restricted member. Continue?' and the answer
+is yes", which is a reviewable fact about the app, rather than a person
+saying yes into a browser where nothing records it.
+
 ## Consequences
 
 Easier: the handoff is testable end to end in one process with a fake

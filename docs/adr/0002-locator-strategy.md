@@ -29,16 +29,41 @@ frame it lives in. A later candidate winning is the drift signal.
 | Decision | Choice | Why |
 |---|---|---|
 | Order | role+name, label, row header, exact text, structural CSS path, bounding box | Most to least durable. Role and accessible name is how a person names a control and survives layout changes. The bounding box is where the control was on the day. |
-| Confidence | Fixed per strategy: 0.95, 0.85, 0.85, 0.6, 0.4, 0.1 | The number is a statement about the strategy, not the element. A reviewer can read it as "how surprised should I be if this one was needed". |
+| Confidence | Fixed per strategy: 0.95, 0.85, 0.85, 0.6, 0.4, 0.1, and 0.7 for a results-row position | The number is a statement about the strategy, not the element. A reviewer can read it as "how surprised should I be if this one was needed". A results row is the one place a structural path is the durable choice, which is why it outranks the others' 0.4. |
 | Reasoning | Every candidate carries a sentence; the first carries the model's own reasoning for the step | The artifact says why a control was chosen at all, not only how to find it. |
 | Outputs | Role, name and text are left out of an output's candidates | Those facts are the value itself. A candidate built from `$4,242.00` finds today's balance and nobody else's. The row header (`th:text-is("Savings balance") + td`) takes their place. |
 | Frames | `frame_path` is the chain of frame names from the top document; unnamed frames get `frame[n]` | The demo app's search form is in an iframe. A locator that ignores the frame never resolves. Positional names are fragile and the artifact shows that. |
 | Win condition | Visible and exactly one match within the candidate's share of the timeout | Two matches means the candidate is ambiguous, which is as bad as none. |
 | Timeout | Split evenly across candidates, minimum 250 ms each | A target with more fallbacks does not take longer to fail. |
 | Drift | `candidate_index > 0` logs `target_resolved` with the index and adds a `drift_warning` to the result | The run goes on. The warning is what tells a maintainer the recording is ageing. |
-| Record-named links | A link whose text was not on the start screen is page data: its results-row position ranks first, its name last | The name finds the recorded member and nobody else. Ranking it first raised a meaningless drift warning on every other member. |
-| Variant | Title and version string checked before the first step; each key screen's shape measured the first time replay lands on it | A different build of the app is a different signal from one control moving. `variant_mismatch` is a warning, not a stop. |
+| Record-named links | A link whose text was not on the start screen is page data: its results-row position is the only candidate that carries over, at 0.7, and its name is not offered at all | The name finds the recorded member and nobody else. Ranking it first raised a meaningless drift warning on every other member; keeping it last meant a click that fell through opened the recorded member. |
+| The caller's own record | A control whose name is the value of an input gets exactly one candidate, `link:{input:member_id}`, and no fallbacks | Every fallback finds the recorded record. A fallback here turns a loud failure into a quiet wrong answer, which is the one outcome worse than stopping. |
+| Label cells | The row's first `th`, or the first of exactly two `td`s when the element is the second | ParaBank labels a value with `<td>Balance:</td>`, so the `th` rule found nothing and the output fell back to a structural path that counts rows. Recorded on one member and replayed for one with an extra row, that reads the row above the one it wants. |
+| Label cells that are data | Never built from a label whose text repeats an input or an extracted value | In a data table the neighbouring cell is somebody's record. A candidate anchored on it finds that member. |
+| Step ids | A step is named after the application's words: the input's name for an input-named control, the control's role for a record-named one | The id is in the artifact, in every log line and in the event sequence hash. A control named after a member puts that member in all three. |
+| Variant | Title and version string checked once, after the first step has reached the recorded start screen; each key screen's shape measured the first time replay lands on it | A different build of the app is a different signal from one control moving. `variant_mismatch` is a warning, not a stop, so nothing is lost by it coming after the login. Asking before the first step compared the login page against the recorded start screen and warned on every run. |
 | Screen shape | Lantern's method: the ordered (role, state bitmap, landmark) tuples a person meets tabbing through the screen, compared by edit distance, threshold in `policy.yaml`. Controls inside a dialog are left out: a modal overlay is state, not shape | A hash says "identical or not", and a bank page is never identical once a name differs. A distance says how different, in controls: a renamed button is 0, an extra focusable control is 1. The number is logged every time. |
+
+The row-label candidate is spelled `th:text-is("Savings balance") + td`,
+and `:text-is()` is Playwright's own pseudo-class. ADR-0006 says no
+Playwright-specific string is ever persisted, and this one is. The portable
+version is its own strategy, `row_label`, holding the label text and the tag
+that carried it, which each surface translates: a CSS sibling selector on
+the web, the cell to the right in an accessibility tree on the desktop. The
+facts are already stored separately (`row_header`, `row_header_tag`) and the
+compiler joins them into a selector at the last moment, so this is a spelling
+change and not a redesign. I did not make it. It is a cut, named in
+REPORT section 7.
+
+A limit I can name but have not built: controls with no accessible name.
+Every candidate above the structural path needs a name, a label or text.
+ParaBank's login has 0 of 2 inputs named and its customer lookup 0 of 9, so
+on that app every input falls straight to a structural path at 0.4 and the
+recorded login is a hand-declared recovery with CSS candidates. The design
+is a `near_text` strategy: "the textbox in the row whose text is Username".
+It is the same idea the label-cell rule already uses, and the same idea a
+desktop accessibility API uses for an unlabelled edit control, which is why
+it belongs here rather than in a web-specific fallback.
 
 Evidence run 7 shows the signals on variant B: the Search button is
 renamed, so candidate 1 (its structural path) resolves and `drift_warning` is

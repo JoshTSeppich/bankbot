@@ -38,9 +38,29 @@ exported as JSON Schema under `docs/schema/`.
 | Finding a control | `TargetRef` is an ordered list of `Candidate` with strategy, value, confidence and reasoning, plus `frame_path` | ADR-0002. |
 | Error taxonomy in data | `outcomes[]`, `recoveries[]`, per-step `on_fail` | ADR-0003. Replay's behaviour on a known condition is in the artifact, not in engine code. |
 | Provenance | `created_from_run` carries model id, SDK versions, timestamps and the API request ids | The evidence in the repo can be tied to real model calls. |
-| Drift detection | `app.fingerprint`: title, version string, the tab sequence of the start screen, compared by edit distance (ADR-0002) | Replay warns `variant_mismatch` before acting. |
+| Drift detection | `app.fingerprint`: title, version string, the tab sequence of the start screen, compared by edit distance (ADR-0002) | Replay warns `variant_mismatch` once, after the first step has reached the recorded start screen. Discovery took the fingerprint there, and a signed-out browser opens on the login page. |
 | Multi-tenant hook | `app.variant` plus semver `version` | The seam a per-tenant overlay would key on. Nothing in this build reads it. |
 | Unattended use | `approval: draft \| approved`; `risk: safe \| risky` | Replay asks a human before a risky step unless the artifact is approved. |
+| A control the caller names | A candidate's value may hold `{input:member_id}` | Some controls are the caller's own record: the directory link whose text is the member id they asked for. A recorded name there finds the recorded member and nobody else. ADR-0002. |
+| Where a placeholder may sit | Only in a step's target | Replay fills a step's target and nothing else. A placeholder in an output's extract or an assertion would reach the surface as literal text and never resolve. |
+
+Four things the loader refuses, all of them about inputs:
+
+- An input no step uses. A capability that declares a parameter and reads
+  it nowhere walks the recorded flow and answers about the recorded record
+  whatever it was asked for. That is the worst failure this system can have,
+  because it is a `Success`.
+- A placeholder naming an input the capability does not declare.
+- A placeholder naming an optional input. A control named by an input
+  cannot be found without a value, so the input has to be required. That is
+  a property of the artifact, not of the run.
+- A placeholder anywhere but a step's target. The error names which one.
+
+Adding a placeholder to a control, or making a declared input load-bearing
+by putting one there, is a minor bump of the artifact's `version`. The
+caller's side of the contract does not move: same inputs, same outputs, same
+question answered about the record they named. Adding a new required input
+is a major bump, because a call that worked yesterday fails at load today.
 
 ## Alternatives rejected
 

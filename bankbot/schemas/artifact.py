@@ -393,9 +393,22 @@ class Capability(StrictModel):
             for named in sorted(inputs_named_in(step.target)):
                 if named not in self.inputs:
                     raise ValueError(f"step {step.id!r} locates by undeclared input {named!r}")
+                if not self.inputs[named].required:
+                    raise ValueError(
+                        f"step {step.id!r} locates by optional input {named!r}; a control "
+                        "named by an input cannot be found without a value"
+                    )
             if isinstance(step.on_fail, Recover) and step.on_fail.recovery_id not in recovery_ids:
                 raise ValueError(
                     f"step {step.id!r} references undeclared recovery {step.on_fail.recovery_id!r}"
+                )
+
+        for where, target in _targets_that_only_check(self, all_steps):
+            placeholders = sorted(inputs_named_in(target))
+            if placeholders:
+                raise ValueError(
+                    f"{where} locates by input {placeholders[0]!r}; "
+                    "only a step's target may name an input"
                 )
 
         unused = inputs_never_used(self.inputs, all_steps)
@@ -409,3 +422,27 @@ class Capability(StrictModel):
                     f"{recovery.resume_from_step!r}"
                 )
         return self
+
+
+def _targets_that_only_check(
+    capability: "Capability", steps: list[Step]
+) -> list[tuple[str, TargetRef | None]]:
+    """Every target in the artifact that is checked rather than acted on.
+
+    Replay fills an input into a step's target and nowhere else, so a
+    placeholder anywhere on this list would survive into the surface as
+    literal text. Naming each one lets the error say which.
+    """
+    targets: list[tuple[str, TargetRef | None]] = [
+        ("the checkpoint", capability.checkpoint.target_visible)
+    ]
+    targets += [
+        (f"precondition {p.description!r}", p.target_visible) for p in capability.preconditions
+    ]
+    targets += [
+        (f"step {s.id!r}'s wait_for", s.wait_for.target_visible) for s in steps if s.wait_for
+    ]
+    targets += [(f"outcome {o.code!r}", o.matches.target_visible) for o in capability.outcomes]
+    targets += [(f"recovery {r.id!r}", r.matches.target_visible) for r in capability.recoveries]
+    targets += [(f"output {name!r}", spec.extract) for name, spec in capability.outputs.items()]
+    return targets

@@ -79,6 +79,38 @@ def test_a_locator_candidate_naming_an_undeclared_input_is_rejected() -> None:
         Capability.model_validate(example)
 
 
+def test_only_a_step_may_locate_by_an_input() -> None:
+    example = load_example()
+    extract = example["outputs"]["savings_balance"]["extract"]
+    extract["candidates"][0]["value"] = 'td:text-is("{input:member_id}") + td'
+    with pytest.raises(ValidationError, match="only a step's target may name an input"):
+        Capability.model_validate(example)
+
+
+def test_an_assertion_may_not_locate_by_an_input() -> None:
+    example = load_example()
+    example["checkpoint"]["target_visible"] = {
+        "candidates": [
+            {
+                "strategy": "role_name",
+                "value": "link:{input:member_id}",
+                "confidence": 0.95,
+                "reasoning": "still on the member the caller asked for",
+            }
+        ]
+    }
+    with pytest.raises(ValidationError, match="only a step's target may name an input"):
+        Capability.model_validate(example)
+
+
+def test_a_locator_may_not_name_an_optional_input() -> None:
+    example = load_example()
+    example["inputs"]["member_id"]["required"] = False
+    example["steps"][3]["target"]["candidates"][0]["value"] = "link:{input:member_id}"
+    with pytest.raises(ValidationError, match="optional input 'member_id'"):
+        Capability.model_validate(example)
+
+
 def test_an_input_a_locator_names_counts_as_used_even_when_no_step_types_it() -> None:
     example = load_example()
     example["steps"][1]["value"] = {"literal": "M-100"}

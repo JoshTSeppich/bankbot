@@ -37,6 +37,7 @@ class Event(StrEnum):
     OUTPUT_EXTRACTED = "output_extracted"
     RETRY = "retry"
     OUTCOME_MATCHED = "outcome_matched"
+    NATIVE_DIALOG = "native_dialog"
     CHECKPOINT_PASSED = "checkpoint_passed"
     WARNING = "warning"
     SCREEN_COMPARED = "screen_compared"

@@ -42,7 +42,7 @@ from bankbot.schemas import (
     Success,
     WarningCode,
 )
-from bankbot.surface import ActionFailed, SessionLost, Surface, distance
+from bankbot.surface import ActionFailed, NativeDialog, SessionLost, Surface, distance
 
 # Outcome and recovery matchers are a quick look at the page, not a wait:
 # on the happy path they run after every step and must not slow it down.
@@ -254,9 +254,24 @@ class Replay:
             if self.escalation.aborted():
                 return self._failure(step, "the run to continue", "aborted by the operator")
             failure = self._try(step)
+            question = self._note_dialogs()
             outcome = self._matching_outcome()
             if outcome is not None:
                 return outcome
+            if question is not None:
+                # Between the first question and the second. A page that already says
+                # "no member found" is still an answer, but questions two and three both
+                # assume the action happened and the page is wrong. A dismissed confirm
+                # means it did not happen, and asking again only asks the same question.
+                asked = StepFailed(
+                    "the step to complete without a dialog",
+                    f"{question.type}: {question.message!r} ({question.answer})",
+                    InterventionReason.UNKNOWN_DIALOG,
+                )
+                resolution = self._ask_human(step, index, asked)
+                if resolution is None:
+                    continue
+                return resolution
             if failure is None:
                 return index + 1
 
@@ -319,6 +334,25 @@ class Replay:
             )
 
     # --- the rules -------------------------------------------------------
+
+    def _note_dialogs(self) -> NativeDialog | None:
+        """Log every native dialog the attempt raised and hand back the first that was a question.
+
+        An alert has one possible answer, it was given, and the run carries
+        on. A confirm or a prompt asked something nobody recorded an answer
+        to, and that is a person's call.
+        """
+        question: NativeDialog | None = None
+        for dialog in self.surface.take_dialogs():
+            self.writer.event(
+                Event.NATIVE_DIALOG,
+                type=dialog.type,
+                message=dialog.message,
+                answer=dialog.answer,
+            )
+            if question is None and dialog.type != "alert":
+                question = dialog
+        return question
 
     def _matching_outcome(self) -> Outcome | None:
         for known in self.capability.outcomes:

@@ -773,3 +773,111 @@ def test_an_output_that_does_not_parse_is_described_and_never_quoted(
     assert "money" in result.observed
     assert "Hilltop" not in result.observed
     assert "Hilltop" not in run_dir.log_path.read_text()
+
+
+def test_replay_reports_an_undeclared_confirm_as_unknown_dialog_not_checkpoint_unmet(
+    page: Page,
+    policy: Policy,
+    base_url: str,
+    tmp_path: Path,
+    capability_json: dict[str, Any],
+) -> None:
+    arm_faults(base_url, native_confirm_at_step=3)
+    replay, _ = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.intervention is not None
+    assert result.intervention.reason is InterventionReason.UNKNOWN_DIALOG
+    assert result.observed == "confirm: 'Restricted member. Continue?' (dismissed)"
+
+
+def test_replay_does_not_retry_a_click_that_raised_a_confirm(
+    page: Page,
+    policy: Policy,
+    base_url: str,
+    tmp_path: Path,
+    capability_json: dict[str, Any],
+) -> None:
+    arm_faults(base_url, native_confirm_at_step=3)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    replay.run()
+    events = read_events(run_dir)
+    attempts = [
+        event
+        for event in events
+        if event["event"] == "step_started" and event["step_id"] == "open_member"
+    ]
+    assert len(attempts) == 1, "the step declares retries; a question is not a transient"
+    assert not [event for event in events if event["event"] == "retry"]
+
+
+def test_a_native_alert_is_logged_and_the_run_still_succeeds(
+    page: Page,
+    policy: Policy,
+    base_url: str,
+    tmp_path: Path,
+    capability_json: dict[str, Any],
+) -> None:
+    arm_faults(base_url, native_alert_at_step=2)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Success)
+    assert result.outputs == {"savings_balance": "4242.00"}
+    raised = [event for event in read_events(run_dir) if event["event"] == "native_dialog"]
+    assert [(event["type"], event["answer"]) for event in raised] == [("alert", "accepted")]
+    assert raised[0]["message"] == "Your session will expire in 2 minutes."
+
+
+def test_an_undisturbed_run_logs_nothing_new_so_its_event_sequence_is_unchanged(
+    page: Page,
+    policy: Policy,
+    base_url: str,
+    tmp_path: Path,
+    capability_json: dict[str, Any],
+) -> None:
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    assert isinstance(replay.run(), Success)
+    # The event sequence hash is over these lines, so one new name on the happy
+    # path would silently invalidate every hash committed under evidence/. The
+    # committed run 02 carries one more, screen_compared, because its capability
+    # was compiled and so has screen fingerprints; this fixture is hand-written.
+    assert sorted({str(event["event"]) for event in read_events(run_dir)}) == [
+        "checkpoint_passed",
+        "output_extracted",
+        "recovery_finished",
+        "recovery_started",
+        "run_finished",
+        "run_started",
+        "step_done",
+        "step_started",
+        "target_resolved",
+        "trace",
+    ]

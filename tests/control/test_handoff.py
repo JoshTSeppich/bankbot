@@ -143,3 +143,68 @@ def test_closing_the_page_while_a_person_holds_control_ends_the_run_as_session_l
     assert controller.abort_reason == SESSION_LOST
     events = [event["event"] for event in read_events(run_dir)]
     assert events[-1] == "run_finished"
+
+
+def test_a_person_can_reach_the_guarded_record_around_the_confirm_and_mark_the_step_done(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path, capability_json: dict[str, Any]
+) -> None:
+    """A limit, not a feature: the guard is an onclick and the href beside it is open.
+
+    ADR-0004 says the listener answers for the operator too, so nobody can
+    say yes to a confirm. What nobody can do through the guarded control, a
+    person can still do around it: the address bar never sees the onclick.
+    The step's wait_for then holds and the run reports Success, with the
+    vendor's question dismissed and the guard never satisfied. This is the
+    argument for the single-use accept in ADR-0004.
+    """
+    arm_faults(base_url, native_confirm_at_step=3)
+    capability = Capability.model_validate(capability_json)
+    params = {"member_id": "M-100"}
+    run_dir = RunDir.create(tmp_path / "runs", new_run_id())
+    writer = EvidenceWriter(run_dir, policy.redactor(extra_values=params.values()))
+    surface = PlaywrightSurface(page, policy.mask_selectors)
+    person_should_act = threading.Event()
+
+    def pump(ms: int) -> None:
+        if person_should_act.is_set():
+            person_should_act.clear()
+            # Not the guarded link. The address bar, which the onclick never sees.
+            page.goto(f"{base_url}/members/M-100")
+            page.wait_for_timeout(300)
+            controller.mark_step_done()
+        surface.idle(ms)
+
+    controller = RunController(
+        run_dir, capability, sorted(params), surface=surface, writer=writer, pump=pump
+    )
+    registry = RunRegistry()
+    registry.add(controller)
+
+    def operator() -> None:
+        with TestClient(create_operator_app(registry)) as client:
+            wait_until(controller, ControlState.INTERVENTION_REQUESTED)
+            client.post(f"/operator/{controller.run_id}/take", follow_redirects=False)
+            person_should_act.set()
+            wait_until(controller, ControlState.AUTOMATION)
+
+    thread = threading.Thread(target=operator)
+    thread.start()
+    result = Replay(
+        capability,
+        params,
+        surface=surface,
+        policy=policy,
+        run_dir=run_dir,
+        writer=writer,
+        base_url=base_url,
+        secrets=TEST_SECRETS,
+        escalation=controller,
+        step_timeout_ms=1500,
+    ).run()
+    thread.join()
+    controller.finish(result.kind)
+
+    assert isinstance(result, Success), result
+    assert result.outputs == {"savings_balance": "4242.00"}
+    dialogs = [e for e in read_events(run_dir) if e["event"] == "native_dialog"]
+    assert dialogs and dialogs[0]["answer"] == "dismissed", "nobody ever said yes"

@@ -3,8 +3,9 @@
 Owns: the executor that walks the steps, resolves each target through the
 surface, and the classifier that turns whatever happened next into one of
 three results: Success, a known Outcome, or a Failure. The classification
-order is fixed here (known outcome, known recovery, the step's own on_fail,
-then a human) because that order is the error taxonomy.
+order is fixed here (known outcome, an unrecorded native dialog, known
+recovery, the step's own on_fail, then a human) because that order is the
+error taxonomy.
 
 Does not own: how the artifact was made (discover/, compile/), how a page is
 perceived or driven (surface/), what happens while a human is in control

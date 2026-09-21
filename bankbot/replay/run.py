@@ -1,11 +1,13 @@
 """The replay executor: walk the steps, apply the rules in order, return one result.
 
 Owns: the step loop and the classification order. After every attempt the
-same four questions are asked in the same order: did a known outcome match
-(the run is over, and that is an answer); did a known recovery match (run
-it, then retry); does the step's own on_fail allow another go; and if none
-of those, a human is asked. Unattended runs answer that last question with
-ABORT and the run ends as a Failure that carries the request.
+same five questions are asked in the same order: did a known outcome match
+(the run is over, and that is an answer); did the step raise a native dialog
+nobody recorded an answer to (ask a person, and do not spend the retries);
+did a known recovery match (run it, then retry); does the step's own on_fail
+allow another go; and if none of those, a human is asked. Unattended runs
+answer that last question with ABORT and the run ends as a Failure that
+carries the request.
 
 Does not own: doing a step (replay/steps.py), perception (surface/), what
 is allowed (policy/), how results reach disk (evidence/), or how a human

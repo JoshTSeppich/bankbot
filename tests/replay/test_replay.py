@@ -881,3 +881,38 @@ def test_an_undisturbed_run_logs_nothing_new_so_its_event_sequence_is_unchanged(
         "target_resolved",
         "trace",
     ]
+
+
+def test_a_member_id_inside_a_dialog_is_masked_in_the_result_and_the_log(
+    page: Page,
+    policy: Policy,
+    base_url: str,
+    tmp_path: Path,
+    capability_json: dict[str, Any],
+) -> None:
+    # The dialog's text is kept verbatim on purpose: a screenshot cannot capture a
+    # dialog, so this string is the only record of what it said. The redactor is what
+    # keeps the caller's own value out of it.
+    page.add_init_script(
+        "addEventListener('DOMContentLoaded', () => {"
+        "  const shown = document.querySelector('[role=dialog]');"
+        "  if (shown) shown.append(' Member M-100 cannot be opened.');"
+        "});"
+    )
+    arm_faults(base_url, unknown_dialog_at_step=2)
+    replay, run_dir = make_replay(
+        load(capability_json),
+        {"member_id": "M-100"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert "M-100 cannot be opened" in result.observed, "quoted in memory"
+
+    written = json.loads(run_dir.result_path.read_text())
+    assert "M-100" not in run_dir.result_path.read_text()
+    assert "[REDACTED] cannot be opened" in written["observed"]
+    assert "M-100" not in run_dir.log_path.read_text()

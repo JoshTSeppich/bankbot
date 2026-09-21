@@ -7,6 +7,12 @@ model sees is part of this decision. No provider abstraction: switching
 models is an edit to this file, which is a better story than a Protocol
 with one implementation.
 
+Decider is a Protocol with two implementations, not one: ClaudeDecider and
+the scripted deciders in tests/discover/conftest.py, which are what let every
+discovery test run the real loop without a key or a token. The no-provider-
+abstraction sentence above is about the second axis, swapping Anthropic for
+someone else, and there the Protocol buys nothing.
+
 Does not own: what to do with the action (discover/loop.py).
 
 Governed by ADR-0002 (locator strategy: the model targets by role and name).

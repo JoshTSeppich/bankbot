@@ -6,6 +6,11 @@ outcomes, recoveries such as logging back in) and the typed inputs and
 outputs are declared here by someone who knows the app. The compiler
 merges the two.
 
+Which half is which, so the "the model discovered it" claim stays honest:
+the steps and every candidate in them are discovered, and so is each step's
+wait_for. The inputs, the outputs' declared types, the known outcomes and the
+recoveries are written here first and merged in by the compiler.
+
 Does not own: the loop that uses it (discover/loop.py) or the artifact it
 becomes (compile/).
 

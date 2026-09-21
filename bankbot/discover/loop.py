@@ -9,6 +9,15 @@ dropped. Two allowlist blocks in a row ask a human. A risky block asks a
 human at once: the model has just said the goal needs an irreversible
 action, and that is a person's call, not something to route around.
 
+Four numbers stop a run, and only two of them are arguments. Two blocks
+before escalating is argued from a run that went wrong at one: the model was
+blocked once, asserted the button was still there, called done, and compiled
+a draft that closed nothing. Three unchanged screens is argued as a semantic
+fixed point: stop when acting no longer changes the state being acted on.
+MAX_STEPS and MAX_SECONDS are neither; they are budgets, chosen to be larger
+than any run this app needs and small enough that a loop cannot spend a
+morning. Nothing about the app was measured to pick them.
+
 Does not own: talking to the model (discover/model.py), the tool shape
 (discover/tools.py), or compiling what it recorded (compile/).
 

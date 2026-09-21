@@ -38,6 +38,7 @@ from bankbot.schemas.artifact import (
     Step,
     StrictModel,
     TargetRef,
+    inputs_named_in,
     inputs_never_used,
 )
 from bankbot.schemas.intervention import (
@@ -94,5 +95,6 @@ __all__ = [
     "Success",
     "TargetRef",
     "WarningCode",
+    "inputs_named_in",
     "inputs_never_used",
 ]

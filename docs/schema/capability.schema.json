@@ -92,7 +92,7 @@
     },
     "Candidate": {
       "additionalProperties": false,
-      "description": "One way to find a control, with the reasoning a reviewer can audit.",
+      "description": "One way to find a control, with the reasoning a reviewer can audit.\n\nvalue may name one of the capability's own inputs as `{input:member_id}`\nwhen the control is the caller's record rather than part of the app: the\ndirectory link whose text is the member id they asked for. Replay fills\nit in before the surface sees it, so the surface never learns what a\nparameter is. Only a declared input may be named, and only in a step's\ntarget, so a locator can never become a way to reach a value the caller\ndid not pass.",
       "properties": {
         "strategy": {
           "$ref": "#/$defs/LocatorStrategy"

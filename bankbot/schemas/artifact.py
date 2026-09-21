@@ -12,6 +12,7 @@ Governed by ADR-0001 (artifact schema), ADR-0002 (locator strategy) and
 ADR-0003 (error taxonomy).
 """
 
+import re
 from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
@@ -20,6 +21,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SEMVER_PATTERN = r"^\d+\.\d+\.\d+$"
+INPUT_PLACEHOLDER = re.compile(r"\{input:([a-zA-Z_][a-zA-Z0-9_]*)\}")
 ENV_VAR_PATTERN = r"^[A-Z][A-Z0-9_]*$"
 
 
@@ -47,7 +49,16 @@ class LocatorStrategy(StrEnum):
 
 
 class Candidate(StrictModel):
-    """One way to find a control, with the reasoning a reviewer can audit."""
+    """One way to find a control, with the reasoning a reviewer can audit.
+
+    value may name one of the capability's own inputs as `{input:member_id}`
+    when the control is the caller's record rather than part of the app: the
+    directory link whose text is the member id they asked for. Replay fills
+    it in before the surface sees it, so the surface never learns what a
+    parameter is. Only a declared input may be named, and only in a step's
+    target, so a locator can never become a way to reach a value the caller
+    did not pass.
+    """
 
     strategy: LocatorStrategy
     value: str
@@ -189,6 +200,17 @@ class Step(StrictModel):
     on_fail: OnFail = Field(default_factory=Fail)
 
 
+def inputs_named_in(target: "TargetRef | None") -> set[str]:
+    """The inputs a target's candidates name with `{input:...}` placeholders."""
+    if target is None:
+        return set()
+    return {
+        name
+        for candidate in target.candidates
+        for name in INPUT_PLACEHOLDER.findall(candidate.value)
+    }
+
+
 def inputs_never_used(inputs: Iterable[str], steps: Iterable[Step]) -> list[str]:
     """Name the declared inputs that no step references.
 
@@ -198,7 +220,11 @@ def inputs_never_used(inputs: Iterable[str], steps: Iterable[Step]) -> list[str]
     question first so discovery can name the input instead of printing a
     validation dump.
     """
-    used = {step.value.param for step in steps if isinstance(step.value, ParamRef)}
+    used: set[str] = set()
+    for step in steps:
+        if isinstance(step.value, ParamRef):
+            used.add(step.value.param)
+        used |= inputs_named_in(step.target)
     return [name for name in inputs if name not in used]
 
 
@@ -364,6 +390,9 @@ class Capability(StrictModel):
                 )
             if step.action is ActionType.EXTRACT and not isinstance(step.value, OutputRef):
                 raise ValueError(f"extract step {step.id!r} must name an output to store into")
+            for named in sorted(inputs_named_in(step.target)):
+                if named not in self.inputs:
+                    raise ValueError(f"step {step.id!r} locates by undeclared input {named!r}")
             if isinstance(step.on_fail, Recover) and step.on_fail.recovery_id not in recovery_ids:
                 raise ValueError(
                     f"step {step.id!r} references undeclared recovery {step.on_fail.recovery_id!r}"

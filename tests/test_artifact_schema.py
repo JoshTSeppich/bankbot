@@ -57,6 +57,35 @@ def test_a_capability_whose_input_no_step_uses_is_rejected() -> None:
         Capability.model_validate(example)
 
 
+def test_a_locator_candidate_may_name_a_declared_input() -> None:
+    example = load_example()
+    example["steps"][3]["target"]["candidates"] = [
+        {
+            "strategy": "role_name",
+            "value": "link:{input:member_id}",
+            "confidence": 0.95,
+            "reasoning": "The caller asked for this member by id.",
+        }
+    ]
+    capability = Capability.model_validate(example)
+    assert capability.steps[3].target is not None
+    assert capability.steps[3].target.candidates[0].value == "link:{input:member_id}"
+
+
+def test_a_locator_candidate_naming_an_undeclared_input_is_rejected() -> None:
+    example = load_example()
+    example["steps"][3]["target"]["candidates"][0]["value"] = "link:{input:branch}"
+    with pytest.raises(ValidationError, match="undeclared input 'branch'"):
+        Capability.model_validate(example)
+
+
+def test_an_input_a_locator_names_counts_as_used_even_when_no_step_types_it() -> None:
+    example = load_example()
+    example["steps"][1]["value"] = {"literal": "M-100"}
+    example["steps"][3]["target"]["candidates"][0]["value"] = "link:{input:member_id}"
+    assert Capability.model_validate(example).inputs["member_id"].required
+
+
 def test_step_referencing_undeclared_recovery_is_rejected_at_load_time() -> None:
     example = load_example()
     example["steps"][0]["on_fail"] = {"kind": "recover", "recovery_id": "session_expired"}

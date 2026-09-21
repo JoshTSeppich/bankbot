@@ -4,8 +4,9 @@ Owns: the ranking. Role and accessible name first, because that is how a
 person names a control and it survives layout changes; label and exact
 text next; a table cell anchored on its row header; the structural path;
 and the bounding box last, at a confidence that says "do not trust this".
-One exception: a control named after a record on the page, where the
-position leads and the name trails.
+Two exceptions: a control whose name is the caller's own input gets one
+templated candidate and no fallbacks, and a control named after a record on
+the page leads with its position and never offers its name.
 Every candidate carries the model's reasoning for the step so a reviewer
 can see why the control was chosen at all.
 
@@ -26,8 +27,11 @@ STRUCTURAL_CONFIDENCE = 0.4
 # A results row is the one place a structural path is the durable choice: the row is
 # where the record is, whatever the record says.
 ROW_POSITION_CONFIDENCE = 0.7
-DATA_NAME_CONFIDENCE = 0.2
 BBOX_CONFIDENCE = 0.1
+NO_FALLBACK = (
+    "No fallback: every other candidate finds the recorded record, and for a control "
+    "named by the caller's input a fallback is a wrong answer waiting for a bad day."
+)
 
 
 def target_from_facts(
@@ -36,6 +40,7 @@ def target_from_facts(
     *,
     for_output: bool = False,
     name_is_data: bool = False,
+    input_name: str | None = None,
 ) -> TargetRef:
     """Rank every fact about the element into a candidate, most durable first.
 
@@ -47,8 +52,26 @@ def target_from_facts(
     name_is_data marks a control whose name is a record on the page, such
     as the link that carries a member's name in a results row. The name
     finds that member and nobody else, so the position ranks first and the
-    name is kept last as a way to tell that the same record came up.
+    name is not offered at all.
+
+    input_name marks a control whose name is the value of a caller's input,
+    such as the directory link whose text is the member id. It gets one
+    candidate, templated on that input, and nothing else.
     """
+    if input_name is not None and facts.role:
+        return TargetRef(
+            candidates=[
+                Candidate(
+                    strategy=LocatorStrategy.ROLE_NAME,
+                    value=f"{facts.role}:{{input:{input_name}}}",
+                    confidence=ROLE_NAME_CONFIDENCE,
+                    reasoning=(
+                        f"{reasoning} The control is named by the caller's input. {NO_FALLBACK}"
+                    ),
+                )
+            ],
+            frame_path=list(facts.frame_path),
+        )
     candidates: list[Candidate] = []
     if facts.role and facts.name and not for_output and not name_is_data:
         candidates.append(
@@ -102,15 +125,6 @@ def target_from_facts(
                 value=facts.css_path,
                 confidence=STRUCTURAL_CONFIDENCE,
                 reasoning="Structural path from the document root; breaks when the layout changes.",
-            )
-        )
-    if facts.role and facts.name and name_is_data:
-        candidates.append(
-            Candidate(
-                strategy=LocatorStrategy.ROLE_NAME,
-                value=f"{facts.role}:{facts.name}",
-                confidence=DATA_NAME_CONFIDENCE,
-                reasoning="The record's own name; finds the recorded record and no other.",
             )
         )
     if not for_output:

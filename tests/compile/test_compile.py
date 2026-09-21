@@ -251,15 +251,15 @@ def test_an_assert_that_names_the_output_value_is_generalised_to_the_text_around
     assert result.outputs == {"savings_balance": "1050.25"}
 
 
-def test_a_link_named_after_a_record_ranks_its_position_first_and_its_name_last(
+def test_a_link_named_after_a_record_ranks_its_position_first_and_never_offers_its_name(
     recorded: Recorded,
 ) -> None:
     capability = compiled(recorded)
     link = next(step for step in capability.steps if step.id == "click_dana_whitfield")
     assert link.target is not None
     strategies = [candidate.strategy for candidate in link.target.candidates]
-    assert strategies[0] is LocatorStrategy.CSS_STRUCTURAL
-    assert strategies[-2:] == [LocatorStrategy.ROLE_NAME, LocatorStrategy.BBOX]
+    assert strategies == [LocatorStrategy.CSS_STRUCTURAL, LocatorStrategy.BBOX]
+    assert "Dana Whitfield" not in [candidate.value for candidate in link.target.candidates]
     search = next(step for step in capability.steps if step.id == "click_search")
     assert search.target is not None
     assert search.target.candidates[0].strategy is LocatorStrategy.ROLE_NAME, "buttons keep theirs"

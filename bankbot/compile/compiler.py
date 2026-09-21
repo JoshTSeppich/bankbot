@@ -164,15 +164,8 @@ def _acted_step(
 ) -> Step:
     action = recorded.action
     kind = ActionType(action.action.value)
-    target = (
-        target_from_facts(
-            recorded.element,
-            action.reasoning,
-            name_is_data=_names_a_record(recorded.element, transcript),
-        )
-        if recorded.element is not None
-        else None
-    )
+    element = recorded.element
+    target = _target_for(element, action.reasoning, transcript) if element is not None else None
     wait_for = _wait_after(recorded, following, transcript, values_seen)
     step_id = _unique(f"{kind.value}_{_slug(action.name or action.url or kind.value)}", so_far)
     step = Step(id=step_id, action=kind, target=target, wait_for=wait_for)
@@ -192,6 +185,32 @@ def _acted_step(
         # A click that navigates is where slow loads bite; a bounded retry covers them.
         step = step.model_copy(update={"on_fail": Retry(retries=NAVIGATION_RETRIES)})
     return step
+
+
+def _target_for(element: ElementFacts, reasoning: str, transcript: Transcript) -> TargetRef:
+    """Rank the acted control, asking "is this the caller's record?" before anything else."""
+    input_name = _input_named(element, transcript)
+    return target_from_facts(
+        element,
+        reasoning,
+        input_name=input_name,
+        name_is_data=input_name is None and _names_a_record(element, transcript),
+    )
+
+
+def _input_named(element: ElementFacts, transcript: Transcript) -> str | None:
+    """The input whose value is this control's accessible name, if there is one.
+
+    Asked before _names_a_record because on ParaBank the record id was also
+    printed on the start screen, so "it was there before, it is part of the
+    app" was the wrong answer and every caller got the recorded account.
+    """
+    if not element.name:
+        return None
+    for name, value in transcript.params.items():
+        if value and element.name == value:
+            return name
+    return None
 
 
 def _names_a_record(element: ElementFacts, transcript: Transcript) -> bool:

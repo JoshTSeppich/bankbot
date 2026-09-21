@@ -7,9 +7,10 @@ browser, starting the operator pages when a person can see the browser
 
 The one thing this file decides is whose fault a stop is. A condition of the
 world the caller can fix is one line on stderr and exit 2; a run that started
-and ended badly is exit 1; `--times` runs that hash differently are exit 3,
-because no run failed and what broke is the claim that they agree; anything
-else is a bug in bankbot and keeps its traceback. tests/test_cli.py covers
+and ended badly is exit 1; `--times` runs that disagree, on the route they
+took or on the answer they came back with, are exit 3, because no run failed
+and what broke is the claim that they agree; anything else is a bug in
+bankbot and keeps its traceback. tests/test_cli.py covers
 that judgement and nothing else here.
 
 Does not own: the work. discover/, compile/, replay/ and control/ do it;
@@ -307,6 +308,7 @@ def _replay(args: argparse.Namespace) -> int:
     operator_started = False
     exit_code = EXIT_OK
     hashes: dict[str, str] = {}
+    answers: dict[str, str] = {}
     with running_target(args.base_url) as target:
         base_url = target + VARIANT_PREFIXES[args.variant]
         for run_id in _run_ids(args.run_id or new_run_id(), args.times):
@@ -345,20 +347,33 @@ def _replay(args: argparse.Namespace) -> int:
                 if controller is not None:
                     controller.finish(result.kind)
             print(json.dumps(REPLAY_RESULT_ADAPTER.dump_python(result, mode="json"), indent=2))
+            if isinstance(result, Success):
+                answers[run_id] = json.dumps(result.outputs, sort_keys=True)
             hashes[run_id] = event_sequence_hash(read_events(run_dir))
             print(f"event sequence: {hashes[run_id]}")
             print(f"run directory: {run_dir.path}", file=sys.stderr)
             if not (isinstance(result, Success) or result.kind == "outcome"):
                 exit_code = EXIT_RUN_FAILED
+    # Two claims, checked separately, because the hash stopped covering the
+    # second one: it says which route the run took, and the outputs say what it
+    # came back with. Runs that read different balances off the same page log
+    # the same events and hash the same. Route first, and only route, when both
+    # disagree: a different route is why a different answer came back.
     if len(set(hashes.values())) > 1:
-        print("error: these runs did not do the same things", file=sys.stderr)
-        for run_id, digest in hashes.items():
-            print(f"  {run_id}: {digest}", file=sys.stderr)
-        # A run that failed is a fact about one run and is the thing to fix
-        # first, so it keeps the exit code when both are true.
-        if exit_code == EXIT_OK:
-            exit_code = EXIT_RUNS_DISAGREE
-    return exit_code
+        _report_disagreement("did not do the same things", hashes)
+    elif len(set(answers.values())) > 1:
+        _report_disagreement("did not come back with the same answer", answers)
+    else:
+        return exit_code
+    # A run that failed is a fact about one run and is the thing to fix
+    # first, so it keeps the exit code when both are true.
+    return EXIT_RUNS_DISAGREE if exit_code == EXIT_OK else exit_code
+
+
+def _report_disagreement(what: str, by_run: dict[str, str]) -> None:
+    print(f"error: these runs {what}", file=sys.stderr)
+    for run_id, value in by_run.items():
+        print(f"  {run_id}: {value}", file=sys.stderr)
 
 
 def _run_ids(first: str, times: int) -> list[str]:

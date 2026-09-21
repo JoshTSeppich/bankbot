@@ -3,8 +3,14 @@
 Owns: Event, the closed list of names a log line's "event" field may carry,
 and event_sequence_hash, which reduces a run's log to one string with the
 timestamps removed. Two replays of the same capability on the same page
-produce the same hash; that is the determinism claim in REPORT.md, checked
-rather than asserted.
+produce the same hash; that is half the determinism claim in REPORT.md,
+checked rather than asserted.
+
+The other half is not in here. The hash covers the route a run took, every
+event in order, including which candidate resolved and which output was
+read. It does not cover what that output said: the log carries the output's
+name and result.json carries its value. So `replay --times` compares both,
+and a claim that two runs did the same thing needs both to agree.
 
 Does not own: writing events (writer.py) or deciding when to emit one. The
 writer takes an Event, not a string, so mypy refuses a name that is not in

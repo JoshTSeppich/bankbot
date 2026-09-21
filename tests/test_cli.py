@@ -1,11 +1,14 @@
 import json
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from bankbot import cli
+from bankbot.target.members import MEMBERS
 from tests.replay.conftest import TEST_SECRETS
 
 FIXTURE = Path(__file__).parent / "fixtures" / "lookup_savings_balance.json"
@@ -247,3 +250,55 @@ def test_replay_times_names_both_runs_and_both_hashes_when_they_disagree(
     assert len(set(hashes)) == 2, "the two runs were meant to differ"
     assert f"  pair: {hashes[0]}" in printed.err
     assert f"  pair-2: {hashes[1]}" in printed.err
+
+
+def test_replay_times_fails_when_two_runs_read_different_values_off_the_same_page(
+    bare_environment: None,
+    monkeypatch: pytest.MonkeyPatch,
+    base_url: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    for name, value in TEST_SECRETS.items():
+        monkeypatch.setenv(name, value)
+    # The one difference the event sequence cannot see. Both runs take the same
+    # route, resolve the same candidates and log the same events, so both hash
+    # the same; only the balance on the screen moves between them. arm_faults
+    # is the per-run hook, called once before each run opens its browser.
+    dana = MEMBERS["M-100"]
+    monkeypatch.setitem(MEMBERS, "M-100", dana)
+    balances = iter([Decimal("4242.00"), Decimal("9999.00")])
+    arm = cli.arm_faults
+
+    def move_the_balance_before_each_run(target: str, faults: dict[str, str]) -> None:
+        arm(target, faults)
+        MEMBERS["M-100"] = replace(dana, savings=next(balances))
+
+    monkeypatch.setattr(cli, "arm_faults", move_the_balance_before_each_run)
+    code = _cli_with_its_own_browser(
+        [
+            "replay",
+            str(FIXTURE),
+            "--param",
+            "member_id=M-100",
+            "--base-url",
+            base_url,
+            "--runs-dir",
+            str(tmp_path / "runs"),
+            "--run-id",
+            "pair",
+            "--times",
+            "2",
+        ]
+    )
+    printed = capsys.readouterr()
+    hashes = {
+        line.removeprefix("event sequence: ")
+        for line in printed.out.splitlines()
+        if line.startswith("event sequence: ")
+    }
+    assert len(hashes) == 1, "the two runs were meant to take the same route"
+    assert code == cli.EXIT_RUNS_DISAGREE
+    assert "did not come back with the same answer" in printed.err
+    assert '  pair: {"savings_balance": "4242.00"}' in printed.err
+    assert '  pair-2: {"savings_balance": "9999.00"}' in printed.err

@@ -8,8 +8,38 @@
     "session_expired"
   ],
   "warnings": [],
-  "kind": "success",
-  "outputs": {
-    "savings_balance": "4242.00"
+  "kind": "failure",
+  "step_id": "click_search",
+  "expected": "The page moved to /members/results$",
+  "observed": "http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'",
+  "intervention": {
+    "run_id": "05-replay-handoff",
+    "capability_id": "lookup_savings_balance",
+    "capability_version": "1.0.0",
+    "goal": "Look up a member's savings balance",
+    "step_id": "click_search",
+    "step_index": 2,
+    "step_count": 5,
+    "expected": "The page moved to /members/results$",
+    "observed": "http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'",
+    "reason": "checkpoint_unmet",
+    "screenshot": "screenshots/intervention_click_search.png",
+    "log_tail": [
+      "event=step_failed step_id=click_search expected=click on 'Search' to complete observed=Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'",
+      "event=retry step_id=click_search remaining=1",
+      "event=step_started step_id=click_search action=click value=",
+      "event=step_failed step_id=click_search expected=click on 'Search' to complete observed=Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'",
+      "event=retry step_id=click_search remaining=0",
+      "event=step_started step_id=click_search action=click value=",
+      "event=step_failed step_id=click_search expected=click on 'Search' to complete observed=Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'",
+      "event=intervention_requested step_id=click_search reason=unknown_dialog expected=click on 'Search' to complete observed=Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'",
+      "event=control state=intervention_requested",
+      "event=control state=human",
+      "event=control state=automation decision=step_done",
+      "event=intervention_answered step_id=click_search decision=step_done"
+    ],
+    "param_names": [
+      "member_id"
+    ]
   }
 }

@@ -61,19 +61,13 @@
             "strategy": "css_structural",
             "value": "th:text-is(\"Savings balance\") + td",
             "confidence": 0.85,
-            "reasoning": "The cell right after its row header; survives rows moving."
+            "reasoning": "The cell right after the one that labels its row; survives rows moving."
           },
           {
             "strategy": "css_structural",
             "value": "body > table > tbody > tr:nth-of-type(2) > td > table:nth-of-type(2) > tbody > tr:nth-of-type(1) > td",
             "confidence": 0.4,
             "reasoning": "Structural path from the document root; breaks when the layout changes."
-          },
-          {
-            "strategy": "bbox",
-            "value": "163,144,88,23",
-            "confidence": 0.1,
-            "reasoning": "Screen position at recording time; a last resort."
           }
         ],
         "frame_path": []
@@ -189,7 +183,7 @@
       }
     },
     {
-      "id": "click_dana_whitfield",
+      "id": "click_link",
       "action": "click",
       "target": {
         "candidates": [
@@ -198,12 +192,6 @@
             "value": "body > table > tbody > tr:nth-of-type(2) > td > table > tbody > tr > td:nth-of-type(2) > a",
             "confidence": 0.7,
             "reasoning": "Click the member's name link to open their profile where the savings balance is shown. The name is page data; the position is what carries over."
-          },
-          {
-            "strategy": "role_name",
-            "value": "link:Dana Whitfield",
-            "confidence": 0.2,
-            "reasoning": "The record's own name; finds the recorded record and no other."
           },
           {
             "strategy": "bbox",
@@ -240,7 +228,7 @@
     }
   ],
   "checkpoint": {
-    "description": "Member [REDACTED] profile shows Savings balance $4,242.00.",
+    "description": "The page shows 'Savings balance'",
     "url_pattern": null,
     "text_visible": "Savings balance",
     "target_visible": null

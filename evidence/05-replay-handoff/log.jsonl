@@ -1,46 +1,39 @@
-{"ts": "2026-09-19T23:49:46.776964+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1:51533"}
-{"ts": "2026-09-19T23:49:48.079460+00:00", "event": "recovery_started", "recovery": "session_expired"}
-{"ts": "2026-09-19T23:49:48.079750+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
-{"ts": "2026-09-19T23:49:48.161007+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}
-{"ts": "2026-09-19T23:49:48.161170+00:00", "event": "step_done", "step_id": "login_username"}
-{"ts": "2026-09-19T23:49:48.161347+00:00", "event": "step_started", "step_id": "login_password", "action": "type", "value": "secret:BANKBOT_PASSWORD"}
-{"ts": "2026-09-19T23:49:48.196780+00:00", "event": "target_resolved", "step_id": "login_password", "candidate_index": 0}
-{"ts": "2026-09-19T23:49:48.196939+00:00", "event": "step_done", "step_id": "login_password"}
-{"ts": "2026-09-19T23:49:48.197017+00:00", "event": "step_started", "step_id": "login_submit", "action": "click", "value": ""}
-{"ts": "2026-09-19T23:49:48.299346+00:00", "event": "target_resolved", "step_id": "login_submit", "candidate_index": 0}
-{"ts": "2026-09-19T23:49:48.299520+00:00", "event": "step_done", "step_id": "login_submit"}
-{"ts": "2026-09-19T23:49:48.299596+00:00", "event": "recovery_finished", "recovery": "session_expired"}
-{"ts": "2026-09-19T23:49:48.303398+00:00", "event": "step_started", "step_id": "open_start", "action": "navigate", "value": "/members/search"}
-{"ts": "2026-09-19T23:49:48.348439+00:00", "event": "step_done", "step_id": "open_start"}
-{"ts": "2026-09-19T23:49:48.384446+00:00", "event": "screen_compared", "screen": "/members/search", "distance": 0, "length": 2}
-{"ts": "2026-09-19T23:49:48.726325+00:00", "event": "step_started", "step_id": "type_member_id", "action": "type", "value": "param:member_id"}
-{"ts": "2026-09-19T23:49:48.777535+00:00", "event": "target_resolved", "step_id": "type_member_id", "candidate_index": 0}
-{"ts": "2026-09-19T23:49:48.777680+00:00", "event": "step_done", "step_id": "type_member_id"}
-{"ts": "2026-09-19T23:49:49.133837+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
-{"ts": "2026-09-19T23:49:54.233507+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:51533/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
-{"ts": "2026-09-19T23:49:54.904600+00:00", "event": "retry", "step_id": "click_search", "remaining": 1}
-{"ts": "2026-09-19T23:49:54.905040+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
-{"ts": "2026-09-19T23:50:00.000960+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:51533/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
-{"ts": "2026-09-19T23:50:00.678538+00:00", "event": "retry", "step_id": "click_search", "remaining": 0}
-{"ts": "2026-09-19T23:50:00.679132+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
-{"ts": "2026-09-19T23:50:05.789692+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:51533/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
-{"ts": "2026-09-19T23:50:06.564968+00:00", "event": "intervention_requested", "step_id": "click_search", "reason": "unknown_dialog", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:51533/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
-{"ts": "2026-09-19T23:50:06.565129+00:00", "event": "control", "state": "intervention_requested"}
-{"ts": "2026-09-19T23:51:08.050807+00:00", "event": "control", "state": "human"}
-{"ts": "2026-09-19T23:51:11.565634+00:00", "event": "human_action", "kind": "input", "description": "input 'Member ID'", "frame_path": ["main"], "url": "http://127.0.0.1:51533/members/search-form"}
-{"ts": "2026-09-19T23:51:11.638789+00:00", "event": "human_action", "kind": "click", "description": "button 'OK'", "frame_path": [], "url": "http://127.0.0.1:51533/members/search"}
-{"ts": "2026-09-19T23:51:19.931413+00:00", "event": "control", "state": "automation", "decision": "resume"}
-{"ts": "2026-09-19T23:51:19.931845+00:00", "event": "intervention_answered", "step_id": "click_search", "decision": "resume"}
-{"ts": "2026-09-19T23:51:19.932138+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
-{"ts": "2026-09-19T23:51:20.104581+00:00", "event": "target_resolved", "step_id": "click_search", "candidate_index": 0}
-{"ts": "2026-09-19T23:51:20.104740+00:00", "event": "step_done", "step_id": "click_search"}
-{"ts": "2026-09-19T23:51:20.469110+00:00", "event": "step_started", "step_id": "click_dana_whitfield", "action": "click", "value": ""}
-{"ts": "2026-09-19T23:51:20.606449+00:00", "event": "target_resolved", "step_id": "click_dana_whitfield", "candidate_index": 0}
-{"ts": "2026-09-19T23:51:20.606601+00:00", "event": "step_done", "step_id": "click_dana_whitfield"}
-{"ts": "2026-09-19T23:51:20.958079+00:00", "event": "step_started", "step_id": "read_savings_balance", "action": "extract", "value": "output:savings_balance"}
-{"ts": "2026-09-19T23:51:20.989851+00:00", "event": "output_extracted", "output": "savings_balance", "value": "4242.00"}
-{"ts": "2026-09-19T23:51:20.990040+00:00", "event": "target_resolved", "step_id": "read_savings_balance", "candidate_index": 0}
-{"ts": "2026-09-19T23:51:20.990151+00:00", "event": "step_done", "step_id": "read_savings_balance"}
-{"ts": "2026-09-19T23:51:21.350324+00:00", "event": "checkpoint_passed", "description": "Member [REDACTED] profile shows Savings balance $4,242.00."}
-{"ts": "2026-09-19T23:51:21.603795+00:00", "event": "trace", "file": "trace.zip", "kept": true, "existed": true}
-{"ts": "2026-09-19T23:51:21.603896+00:00", "event": "run_finished", "kind": "success"}
+{"ts": "2026-09-21T23:40:17.977886+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1:62766"}
+{"ts": "2026-09-21T23:40:19.254032+00:00", "event": "recovery_started", "recovery": "session_expired"}
+{"ts": "2026-09-21T23:40:19.254266+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
+{"ts": "2026-09-21T23:40:19.342879+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}
+{"ts": "2026-09-21T23:40:19.343038+00:00", "event": "step_done", "step_id": "login_username"}
+{"ts": "2026-09-21T23:40:19.343113+00:00", "event": "step_started", "step_id": "login_password", "action": "type", "value": "secret:BANKBOT_PASSWORD"}
+{"ts": "2026-09-21T23:40:19.389028+00:00", "event": "target_resolved", "step_id": "login_password", "candidate_index": 0}
+{"ts": "2026-09-21T23:40:19.389179+00:00", "event": "step_done", "step_id": "login_password"}
+{"ts": "2026-09-21T23:40:19.389247+00:00", "event": "step_started", "step_id": "login_submit", "action": "click", "value": ""}
+{"ts": "2026-09-21T23:40:19.516286+00:00", "event": "target_resolved", "step_id": "login_submit", "candidate_index": 0}
+{"ts": "2026-09-21T23:40:19.516454+00:00", "event": "step_done", "step_id": "login_submit"}
+{"ts": "2026-09-21T23:40:19.516560+00:00", "event": "recovery_finished", "recovery": "session_expired"}
+{"ts": "2026-09-21T23:40:19.519481+00:00", "event": "step_started", "step_id": "open_start", "action": "navigate", "value": "/members/search"}
+{"ts": "2026-09-21T23:40:19.566185+00:00", "event": "step_done", "step_id": "open_start"}
+{"ts": "2026-09-21T23:40:19.603795+00:00", "event": "screen_compared", "screen": "/members/search", "distance": 0, "length": 2}
+{"ts": "2026-09-21T23:40:19.947035+00:00", "event": "step_started", "step_id": "type_member_id", "action": "type", "value": "param:member_id"}
+{"ts": "2026-09-21T23:40:19.983312+00:00", "event": "target_resolved", "step_id": "type_member_id", "candidate_index": 0}
+{"ts": "2026-09-21T23:40:19.983443+00:00", "event": "step_done", "step_id": "type_member_id"}
+{"ts": "2026-09-21T23:40:20.344167+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-21T23:40:25.445361+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-21T23:40:26.100886+00:00", "event": "retry", "step_id": "click_search", "remaining": 1}
+{"ts": "2026-09-21T23:40:26.101281+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-21T23:40:31.205376+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-21T23:40:31.873418+00:00", "event": "retry", "step_id": "click_search", "remaining": 0}
+{"ts": "2026-09-21T23:40:31.873967+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-21T23:40:36.986574+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-21T23:40:37.736260+00:00", "event": "intervention_requested", "step_id": "click_search", "reason": "unknown_dialog", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-21T23:40:37.736455+00:00", "event": "control", "state": "intervention_requested"}
+{"ts": "2026-09-21T23:40:38.318690+00:00", "event": "control", "state": "human"}
+{"ts": "2026-09-21T23:40:39.548714+00:00", "event": "control", "state": "automation", "decision": "step_done"}
+{"ts": "2026-09-21T23:40:39.548970+00:00", "event": "intervention_answered", "step_id": "click_search", "decision": "step_done"}
+{"ts": "2026-09-21T23:40:44.745796+00:00", "event": "intervention_requested", "step_id": "click_search", "reason": "checkpoint_unmet", "expected": "The page moved to /members/results$", "observed": "http://127.0.0.1:62766/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-21T23:40:44.745967+00:00", "event": "control", "state": "intervention_requested"}
+{"ts": "2026-09-21T23:40:44.900869+00:00", "event": "control", "state": "human"}
+{"ts": "2026-09-21T23:40:45.921351+00:00", "event": "control", "state": "aborted", "reason": "operator"}
+{"ts": "2026-09-21T23:40:45.945662+00:00", "event": "control", "state": "aborted", "decision": "abort"}
+{"ts": "2026-09-21T23:40:45.945783+00:00", "event": "intervention_answered", "step_id": "click_search", "decision": "abort"}
+{"ts": "2026-09-21T23:40:46.103033+00:00", "event": "trace", "file": "trace.zip", "kept": true, "existed": true}
+{"ts": "2026-09-21T23:40:46.103138+00:00", "event": "run_finished", "kind": "failure"}

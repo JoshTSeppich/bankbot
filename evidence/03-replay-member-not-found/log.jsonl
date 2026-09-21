@@ -1,24 +1,24 @@
-{"ts": "2026-09-19T21:05:10.025539+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1:49245"}
-{"ts": "2026-09-19T21:05:11.107994+00:00", "event": "recovery_started", "recovery": "session_expired"}
-{"ts": "2026-09-19T21:05:11.108238+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
-{"ts": "2026-09-19T21:05:11.179485+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}
-{"ts": "2026-09-19T21:05:11.179824+00:00", "event": "step_done", "step_id": "login_username"}
-{"ts": "2026-09-19T21:05:11.179922+00:00", "event": "step_started", "step_id": "login_password", "action": "type", "value": "secret:BANKBOT_PASSWORD"}
-{"ts": "2026-09-19T21:05:11.239399+00:00", "event": "target_resolved", "step_id": "login_password", "candidate_index": 0}
-{"ts": "2026-09-19T21:05:11.239557+00:00", "event": "step_done", "step_id": "login_password"}
-{"ts": "2026-09-19T21:05:11.239629+00:00", "event": "step_started", "step_id": "login_submit", "action": "click", "value": ""}
-{"ts": "2026-09-19T21:05:11.332993+00:00", "event": "target_resolved", "step_id": "login_submit", "candidate_index": 0}
-{"ts": "2026-09-19T21:05:11.333176+00:00", "event": "step_done", "step_id": "login_submit"}
-{"ts": "2026-09-19T21:05:11.333260+00:00", "event": "recovery_finished", "recovery": "session_expired"}
-{"ts": "2026-09-19T21:05:11.337232+00:00", "event": "step_started", "step_id": "open_start", "action": "navigate", "value": "/members/search"}
-{"ts": "2026-09-19T21:05:11.355616+00:00", "event": "step_done", "step_id": "open_start"}
-{"ts": "2026-09-19T21:05:11.396293+00:00", "event": "screen_compared", "screen": "/members/search", "distance": 0, "length": 2}
-{"ts": "2026-09-19T21:05:11.745308+00:00", "event": "step_started", "step_id": "type_member_id", "action": "type", "value": "param:member_id"}
-{"ts": "2026-09-19T21:05:11.795334+00:00", "event": "target_resolved", "step_id": "type_member_id", "candidate_index": 0}
-{"ts": "2026-09-19T21:05:11.795564+00:00", "event": "step_done", "step_id": "type_member_id"}
-{"ts": "2026-09-19T21:05:12.229370+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
-{"ts": "2026-09-19T21:05:12.343690+00:00", "event": "target_resolved", "step_id": "click_search", "candidate_index": 0}
-{"ts": "2026-09-19T21:05:12.344118+00:00", "event": "step_done", "step_id": "click_search"}
-{"ts": "2026-09-19T21:05:12.368904+00:00", "event": "outcome_matched", "code": "member_not_found"}
-{"ts": "2026-09-19T21:05:12.436063+00:00", "event": "trace", "file": "trace.zip", "kept": true, "existed": true}
-{"ts": "2026-09-19T21:05:12.436186+00:00", "event": "run_finished", "kind": "outcome"}
+{"ts": "2026-09-21T23:39:18.411439+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1:62750"}
+{"ts": "2026-09-21T23:39:19.553773+00:00", "event": "recovery_started", "recovery": "session_expired"}
+{"ts": "2026-09-21T23:39:19.554246+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
+{"ts": "2026-09-21T23:39:19.625819+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}
+{"ts": "2026-09-21T23:39:19.625980+00:00", "event": "step_done", "step_id": "login_username"}
+{"ts": "2026-09-21T23:39:19.626065+00:00", "event": "step_started", "step_id": "login_password", "action": "type", "value": "secret:BANKBOT_PASSWORD"}
+{"ts": "2026-09-21T23:39:19.666089+00:00", "event": "target_resolved", "step_id": "login_password", "candidate_index": 0}
+{"ts": "2026-09-21T23:39:19.666256+00:00", "event": "step_done", "step_id": "login_password"}
+{"ts": "2026-09-21T23:39:19.666333+00:00", "event": "step_started", "step_id": "login_submit", "action": "click", "value": ""}
+{"ts": "2026-09-21T23:39:19.750006+00:00", "event": "target_resolved", "step_id": "login_submit", "candidate_index": 0}
+{"ts": "2026-09-21T23:39:19.750173+00:00", "event": "step_done", "step_id": "login_submit"}
+{"ts": "2026-09-21T23:39:19.750251+00:00", "event": "recovery_finished", "recovery": "session_expired"}
+{"ts": "2026-09-21T23:39:19.752614+00:00", "event": "step_started", "step_id": "open_start", "action": "navigate", "value": "/members/search"}
+{"ts": "2026-09-21T23:39:19.765592+00:00", "event": "step_done", "step_id": "open_start"}
+{"ts": "2026-09-21T23:39:19.795606+00:00", "event": "screen_compared", "screen": "/members/search", "distance": 0, "length": 2}
+{"ts": "2026-09-21T23:39:20.142905+00:00", "event": "step_started", "step_id": "type_member_id", "action": "type", "value": "param:member_id"}
+{"ts": "2026-09-21T23:39:20.183579+00:00", "event": "target_resolved", "step_id": "type_member_id", "candidate_index": 0}
+{"ts": "2026-09-21T23:39:20.183756+00:00", "event": "step_done", "step_id": "type_member_id"}
+{"ts": "2026-09-21T23:39:20.535329+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-21T23:39:20.619943+00:00", "event": "target_resolved", "step_id": "click_search", "candidate_index": 0}
+{"ts": "2026-09-21T23:39:20.620216+00:00", "event": "step_done", "step_id": "click_search"}
+{"ts": "2026-09-21T23:39:20.635505+00:00", "event": "outcome_matched", "code": "member_not_found"}
+{"ts": "2026-09-21T23:39:20.690469+00:00", "event": "trace", "file": "trace.zip", "kept": true, "existed": true}
+{"ts": "2026-09-21T23:39:20.690561+00:00", "event": "run_finished", "kind": "outcome"}

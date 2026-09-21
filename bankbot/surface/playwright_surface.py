@@ -33,6 +33,8 @@ from bankbot.surface.frames import walk_frames
 from bankbot.surface.human import HumanWatcher, OnHumanAction
 from bankbot.surface.locators import Resolved, bbox_centre, first_line, resolve_target
 from bankbot.surface.types import (
+    ACT_TIMEOUT_MS,
+    LOOK_TIMEOUT_MS,
     ActionFailed,
     ActResult,
     FrameNotFound,
@@ -124,11 +126,11 @@ class PlaywrightSurface:
             dialog_text=self._dialog_text(),
         )
 
-    def resolve(self, target: TargetRef, timeout_ms: int = 2000) -> int:
+    def resolve(self, target: TargetRef, timeout_ms: int = LOOK_TIMEOUT_MS) -> int:
         """Find the control and return only the winning index; the handle stays in here."""
         return self._resolve(target, timeout_ms).index
 
-    def inspect(self, target: TargetRef, timeout_ms: int = 2000) -> Inspection:
+    def inspect(self, target: TargetRef, timeout_ms: int = LOOK_TIMEOUT_MS) -> Inspection:
         """Resolve and describe; the element is untouched."""
         resolved = self._resolve(target, timeout_ms)
         element = None
@@ -141,7 +143,7 @@ class PlaywrightSurface:
         action: ActionType,
         target: TargetRef | None,
         value: str | None,
-        timeout_ms: int = 5000,
+        timeout_ms: int = ACT_TIMEOUT_MS,
     ) -> ActResult:
         """Navigate, click, type or select; the other action types are not the surface's job."""
         if action is ActionType.NAVIGATE:
@@ -174,7 +176,7 @@ class PlaywrightSurface:
             ) from error
         return ActResult(candidate_index=resolved.index, element=element)
 
-    def read(self, target: TargetRef, timeout_ms: int = 2000) -> ReadResult:
+    def read(self, target: TargetRef, timeout_ms: int = LOOK_TIMEOUT_MS) -> ReadResult:
         """Resolve, then take the element's visible text as the page shows it."""
         resolved = self._resolve(target, timeout_ms)
         if resolved.locator is None:
@@ -194,7 +196,7 @@ class PlaywrightSurface:
             ) from error
         return ReadResult(candidate_index=resolved.index, text=text, element=element)
 
-    def holds(self, assertion: StateAssertion, timeout_ms: int = 2000) -> bool:
+    def holds(self, assertion: StateAssertion, timeout_ms: int = LOOK_TIMEOUT_MS) -> bool:
         """Poll until every condition holds at the same moment, or the time is up."""
         deadline = time.monotonic() + timeout_ms / 1000
         while True:

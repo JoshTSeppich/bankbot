@@ -202,6 +202,17 @@ class FrameNotFound(Exception):
         super().__init__(f"no frame at {'/'.join(frame_path)!r}; page has {available}")
 
 
+# Every Surface method that waits takes its budget in milliseconds. The two
+# defaults live here rather than on each signature because the Protocol and
+# its implementation both spelled them out, and a number written twice is a
+# number that can drift with nothing to catch it. Acting is the longer one
+# because a click is allowed to trigger a page load; looking is not. A caller
+# that wants its own budget passes one: discover/loop.py gives a model probing
+# for a control 700 ms, because it probes far more often than replay does.
+LOOK_TIMEOUT_MS = 2000
+ACT_TIMEOUT_MS = 5000
+
+
 class Surface(Protocol):
     """The only door between the engine and a live application.
 
@@ -223,7 +234,7 @@ class Surface(Protocol):
         """
         ...
 
-    def resolve(self, target: TargetRef, timeout_ms: int = 2000) -> int:
+    def resolve(self, target: TargetRef, timeout_ms: int = LOOK_TIMEOUT_MS) -> int:
         """Find a control by its ranked candidates and say which one won.
 
         The winning index is the drift signal: index 0 means the page still
@@ -232,7 +243,7 @@ class Surface(Protocol):
         """
         ...
 
-    def inspect(self, target: TargetRef, timeout_ms: int = 2000) -> Inspection:
+    def inspect(self, target: TargetRef, timeout_ms: int = LOOK_TIMEOUT_MS) -> Inspection:
         """Resolve the target and describe the element, without touching it.
 
         Replay asks the policy about the control that actually resolved,
@@ -246,16 +257,16 @@ class Surface(Protocol):
         action: ActionType,
         target: TargetRef | None,
         value: str | None,
-        timeout_ms: int = 5000,
+        timeout_ms: int = ACT_TIMEOUT_MS,
     ) -> ActResult:
         """Do one step and report what was touched, so the compiler can describe it later."""
         ...
 
-    def read(self, target: TargetRef, timeout_ms: int = 2000) -> ReadResult:
+    def read(self, target: TargetRef, timeout_ms: int = LOOK_TIMEOUT_MS) -> ReadResult:
         """Read a control's text: how a capability produces its outputs."""
         ...
 
-    def holds(self, assertion: StateAssertion, timeout_ms: int = 2000) -> bool:
+    def holds(self, assertion: StateAssertion, timeout_ms: int = LOOK_TIMEOUT_MS) -> bool:
         """Say whether a claim about the page becomes true within the timeout.
 
         This is a question, not a wait that fails, because the replay engine

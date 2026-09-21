@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import httpx
 from anthropic.types import MessageParam
 from playwright.sync_api import Page
 
@@ -303,3 +304,32 @@ def test_page_text_telling_the_model_to_close_the_account_is_blocked_by_policy_n
     assert "Account closed" not in page.content()
     assert transcript.stop_reason is StopReason.INTERVENTION_ABORTED
     assert escalation.requests[0].reason is InterventionReason.RISKY_NEEDS_APPROVAL
+
+
+def test_the_model_is_told_when_its_click_raised_a_native_dialog(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    httpx.post(f"{base_url}/admin/faults", json={"native_confirm_at_step": 4})
+    # The dismissed confirm leaves the page where it was, so the recorded happy path
+    # cannot continue from here; the run is bounded and only the click matters.
+    looking_around = act(ToolAction.ASSERT_STATE, text="Search results", description="still here")
+    decider = ScriptedDecider([*HAPPY_PATH[:3], looking_around, looking_around, looking_around])
+    discovery, _ = make_discovery(
+        lookup_spec(),
+        PARAMS,
+        decider,
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+        max_steps=6,
+    )
+    transcript = discovery.run()
+    httpx.delete(f"{base_url}/admin/faults").raise_for_status()
+
+    guarded = transcript.steps[2]
+    assert guarded.detail == (
+        "click done on 'Dana Whitfield'; the page raised a confirm "
+        "'Restricted member. Continue?' and it was dismissed"
+    )
+    assert transcript.steps[3].status == "holds", "the click was refused; the page never moved"

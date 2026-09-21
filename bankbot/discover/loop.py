@@ -315,10 +315,27 @@ class Discovery:
         try:
             result = self.surface.act(kind, target, value, ACT_TIMEOUT_MS)
         except ActionFailed as failed:
-            return Applied("failed", f"failed: {failed.reason}", policy=decision)
+            return Applied("failed", f"failed: {failed.reason}{self._dialogs_raised()}", decision)
         self._asserted_since_last_action = False
         return Applied(
-            "ok", f"{kind.value} done on {action.name or action.url!r}", decision, result.element
+            "ok",
+            f"{kind.value} done on {action.name or action.url!r}{self._dialogs_raised()}",
+            decision,
+            result.element,
+        )
+
+    def _dialogs_raised(self) -> str:
+        """Tell the model what the browser asked, and what it was answered.
+
+        A native dialog is in no ARIA snapshot and no screenshot, so without
+        this the model sees an action that did nothing and proposes it again.
+        The surface answers at once, because a dialog held open freezes the
+        page, and it never says yes to a question. Discovery cannot record an
+        approval it did not give, so the model is told and decides what next.
+        """
+        return "".join(
+            f"; the page raised a {dialog.type} {dialog.message!r} and it was {dialog.answer}"
+            for dialog in self.surface.take_dialogs()
         )
 
     def _locate(self, action: ProposedAction) -> TargetRef | None:

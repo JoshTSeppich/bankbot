@@ -1,8 +1,9 @@
 """Turning artifact references into values, and page text into typed outputs.
 
 Owns: checking the caller's params against the artifact's inputs before the
-browser is touched, resolving ParamRef and SecretRef to the string a step
-types, and parsing an extracted cell into the output's declared type.
+browser is touched, filling the caller's values into the locators that name
+them, resolving ParamRef and SecretRef to the string a step types, and
+parsing an extracted cell into the output's declared type.
 
 Does not own: where a value is read from (the artifact) or logging it
 (evidence/). Secret values pass through here and are never returned to a
@@ -16,6 +17,8 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 
 from bankbot.schemas.artifact import (
+    INPUT_PLACEHOLDER,
+    Capability,
     InputSpec,
     LiteralValue,
     OutputRef,
@@ -23,6 +26,7 @@ from bankbot.schemas.artifact import (
     ParamRef,
     SecretRef,
     Step,
+    inputs_named_in,
 )
 
 
@@ -58,6 +62,46 @@ def _example(spec: InputSpec) -> str:
     # shape wrong needs a value that works, not only the regex that rejected
     # the one they typed.
     return "" if spec.example is None else f" (for example {spec.example!r})"
+
+
+def fill_inputs(capability: Capability, params: Mapping[str, str]) -> Capability:
+    """Put the caller's values into the locators that name them, once, before step one.
+
+    A control that is the caller's own record cannot be recorded by name: the
+    recorded name finds the recorded record and nobody else (ADR-0002). The
+    artifact names the input instead. Resolving it here, and only here, means
+    the step loop, the policy and the surface all run an ordinary capability
+    and none of them has to know what a parameter is.
+    """
+    return capability.model_copy(
+        update={
+            "steps": [_filled(step, params) for step in capability.steps],
+            "recoveries": [
+                recovery.model_copy(
+                    update={"steps": [_filled(step, params) for step in recovery.steps]}
+                )
+                for recovery in capability.recoveries
+            ],
+        }
+    )
+
+
+def _filled(step: Step, params: Mapping[str, str]) -> Step:
+    if step.target is None or not inputs_named_in(step.target):
+        return step
+    candidates = [
+        candidate.model_copy(
+            update={
+                "value": INPUT_PLACEHOLDER.sub(
+                    lambda match: params[match.group(1)], candidate.value
+                )
+            }
+        )
+        for candidate in step.target.candidates
+    ]
+    return step.model_copy(
+        update={"target": step.target.model_copy(update={"candidates": candidates})}
+    )
 
 
 def check_secrets(steps: Sequence[Step], secrets: Mapping[str, str]) -> None:

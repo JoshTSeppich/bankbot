@@ -23,7 +23,7 @@ from bankbot.evidence import Event, EvidenceWriter, RunDir, read_events
 from bankbot.policy import Policy
 from bankbot.replay.escalation import Escalation, Unattended
 from bankbot.replay.steps import STEP_TIMEOUT_MS, PolicyBlocked, StepFailed, StepRunner
-from bankbot.replay.values import check_params, check_secrets
+from bankbot.replay.values import check_params, check_secrets, fill_inputs
 from bankbot.schemas import (
     ActionType,
     Capability,
@@ -111,6 +111,9 @@ class Replay:
     def run(self) -> ReplayResult:
         """Validate inputs, drive the steps, and leave a complete evidence directory behind."""
         check_params(self.capability.inputs, self.params)
+        # From here on the artifact holds values, not placeholders, so the step loop,
+        # the policy and the surface all run an ordinary capability.
+        self.capability = fill_inputs(self.capability, self.params)
         recovery_steps = [
             step for recovery in self.capability.recoveries for step in recovery.steps
         ]

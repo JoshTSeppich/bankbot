@@ -10,16 +10,27 @@ from bankbot.evidence import read_events
 from bankbot.policy import Policy
 from bankbot.replay import ParamInvalid, SecretMissing
 from bankbot.schemas import (
+    ActionType,
+    AppRef,
+    Candidate,
     Capability,
     Failure,
     InterventionDecision,
     InterventionReason,
     InterventionRequest,
+    LiteralValue,
+    LocatorStrategy,
     Outcome,
+    OutputRef,
+    OutputSpec,
+    StateAssertion,
+    Step,
     Success,
+    TargetRef,
     WarningCode,
 )
 from bankbot.surface import screen_fingerprint
+from tests.discover.conftest import directory_spec
 from tests.replay.conftest import TEST_SECRETS, arm_faults, make_replay
 
 
@@ -623,3 +634,107 @@ def test_a_session_lost_failure_is_written_without_a_screenshot_or_a_trace(
     assert not run_dir.trace_path.exists()
     written = json.loads(run_dir.result_path.read_text())
     assert written["evidence"]["screenshot"] is None
+
+
+def directory_capability() -> Capability:
+    """The directory flow by hand: the link to click is named by the caller's input."""
+    spec = directory_spec()
+    return Capability(
+        id=spec.capability_id,
+        name=spec.name,
+        version="1.0.0",
+        app=AppRef(vendor=spec.app.vendor, app_id=spec.app.app_id, variant=spec.app.variant),
+        inputs=dict(spec.inputs),
+        outputs={
+            "savings_balance": OutputSpec(
+                type="money",
+                extract=TargetRef(
+                    candidates=[
+                        Candidate(
+                            strategy=LocatorStrategy.CSS_STRUCTURAL,
+                            value='td:text-is("Savings balance:") + td',
+                            confidence=0.85,
+                            reasoning="The cell right after its label cell.",
+                        )
+                    ]
+                ),
+            )
+        },
+        preconditions=list(spec.preconditions),
+        steps=[
+            Step(
+                id="open_start",
+                action=ActionType.NAVIGATE,
+                value=LiteralValue(literal=spec.start_path),
+                wait_for=StateAssertion(
+                    description="The directory is shown", url_pattern=r"/members/directory$"
+                ),
+            ),
+            Step(
+                id="open_profile",
+                action=ActionType.CLICK,
+                target=TargetRef(
+                    candidates=[
+                        Candidate(
+                            strategy=LocatorStrategy.ROLE_NAME,
+                            value="link:{input:member_id}",
+                            confidence=0.95,
+                            reasoning="The caller asked for this member by id.",
+                        )
+                    ]
+                ),
+                wait_for=StateAssertion(
+                    description="The profile is open", url_pattern=r"/members/profile$"
+                ),
+            ),
+            Step(
+                id="read_savings_balance",
+                action=ActionType.EXTRACT,
+                value=OutputRef(output="savings_balance"),
+            ),
+        ],
+        checkpoint=StateAssertion(
+            description="The profile shows a savings balance", text_visible="Savings balance"
+        ),
+        recoveries=[
+            recovery.model_copy(update={"resume_from_step": "open_start"})
+            for recovery in spec.recoveries
+        ],
+    )
+
+
+def test_a_locator_that_names_an_input_is_filled_in_before_the_first_step(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    replay, _ = make_replay(
+        directory_capability(),
+        {"member_id": "M-101"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Success)
+    assert result.outputs == {"savings_balance": "1050.25"}
+    assert result.warnings == []
+
+
+def test_a_failure_about_a_filled_locator_names_the_input_not_the_value(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    replay, run_dir = make_replay(
+        directory_capability(),
+        {"member_id": "M-999"},
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    result = replay.run()
+    assert isinstance(result, Failure)
+    assert result.intervention is not None
+    assert result.intervention.reason is InterventionReason.CANDIDATE_EXHAUSTED
+    assert "link:{input:member_id}" in result.observed
+    assert "M-999" not in result.observed
+    assert "M-999" not in run_dir.log_path.read_text()

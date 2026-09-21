@@ -140,6 +140,9 @@ class StepRunner:
 
     def _act(self, step: Step) -> Attempted:
         control = control_name(step.target)
+        # The policy is asked about the real control; a failure names the input the
+        # artifact named, so a value replay filled in never reaches the log.
+        named = self._as_recorded(repr(control))
         value = value_for(step, self.params, self.secrets)
         if step.action is ActionType.NAVIGATE and isinstance(step.value, LiteralValue):
             # Artifacts store paths; the deployment they run against is a run-time fact.
@@ -147,20 +150,23 @@ class StepRunner:
         decision = self._ask_policy(step, control, value)
         if not decision.allowed:
             self.writer.event(Event.POLICY_BLOCKED, step_id=step.id, reason=decision.reason)
-            raise PolicyBlocked(f"blocked: {decision.reason}")
+            raise PolicyBlocked(self._as_recorded(f"blocked: {decision.reason}"))
         approved = self.approval is Approval.APPROVED or step.id in self.approved_steps
         if decision.risky and not approved:
             raise StepFailed(
                 "a human approving this risky step",
-                f"{step.action.value} on {control!r}: {decision.reason}; the capability is a draft",
+                self._as_recorded(
+                    f"{step.action.value} on {control!r}: {decision.reason}; "
+                    "the capability is a draft"
+                ),
                 InterventionReason.RISKY_NEEDS_APPROVAL,
             )
         try:
             result = self.surface.act(step.action, step.target, value, self.step_timeout_ms)
         except TargetNotFound as missing:
             raise StepFailed(
-                f"{step.action.value} on {control!r}",
-                "no candidate resolved: " + "; ".join(missing.tried),
+                f"{step.action.value} on {named}",
+                self._as_recorded("no candidate resolved: " + "; ".join(missing.tried)),
                 InterventionReason.CANDIDATE_EXHAUSTED,
             ) from missing
         except FrameNotFound as missing:
@@ -170,7 +176,7 @@ class StepRunner:
             ) from missing
         except ActionFailed as failed:
             raise StepFailed(
-                f"{failed.action} on {control!r} to complete",
+                f"{failed.action} on {named} to complete",
                 f"{failed.reason} at {self.observed()}",
                 self.reason_now(),
             ) from failed
@@ -202,6 +208,20 @@ class StepRunner:
                 }
             )
         return decision
+
+    def _as_recorded(self, text: str) -> str:
+        """Put an input's name back where replay filled its value in.
+
+        A locator may name a caller's input, and replay resolves it before the
+        surface sees it. Failure text about that locator would otherwise quote
+        the caller's record into the log and onto the operator page. The
+        artifact names the input; so does the failure. The redactor is the
+        backstop behind this, not the mechanism.
+        """
+        for name, value in self.params.items():
+            if value:
+                text = text.replace(value, f"{{input:{name}}}")
+        return text
 
     def _name_on_screen(self, target: TargetRef) -> str | None:
         try:

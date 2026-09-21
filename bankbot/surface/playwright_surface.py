@@ -14,10 +14,11 @@ import re
 import time
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urljoin, urlparse
 
+from playwright.sync_api import Dialog, Locator, Page
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import Locator, Page
 
 from bankbot.schemas.artifact import ActionType, AppFingerprint, StateAssertion, TargetRef
 from bankbot.surface.facts import element_facts
@@ -31,6 +32,7 @@ from bankbot.surface.types import (
     FrameNotFound,
     FrameSnapshot,
     Inspection,
+    NativeDialog,
     Observation,
     ObservationUnavailable,
     ReadResult,
@@ -56,11 +58,33 @@ class PlaywrightSurface:
     def __init__(self, page: Page, mask_selectors: Sequence[str]) -> None:
         self._page = page
         self._human = HumanWatcher(page)
+        self._dialogs: list[NativeDialog] = []
+        page.on("dialog", self._answer_dialog)
         self._mask_style = (
             ", ".join(mask_selectors) + " { filter: blur(8px) !important; }"
             if mask_selectors
             else None
         )
+
+    def take_dialogs(self) -> list[NativeDialog]:
+        """Hand back the dialogs raised since the last ask, and forget them."""
+        taken = list(self._dialogs)
+        self._dialogs.clear()
+        return taken
+
+    def _answer_dialog(self, dialog: Dialog) -> None:
+        # Answered at once, always. While a native dialog is open page.title() and
+        # locator.count() hang with no timeout of their own, and screenshot() and
+        # aria_snapshot() time out, so holding one open for a person would freeze
+        # every way this surface has of looking at the page.
+        answer: Literal["accepted", "dismissed"] = (
+            "accepted" if dialog.type == "alert" else "dismissed"
+        )
+        self._dialogs.append(NativeDialog(type=dialog.type, message=dialog.message, answer=answer))
+        if answer == "accepted":
+            dialog.accept()
+        else:
+            dialog.dismiss()
 
     @property
     def page(self) -> Page:

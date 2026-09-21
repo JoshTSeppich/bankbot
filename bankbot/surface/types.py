@@ -108,6 +108,22 @@ class ReadResult(StrictModel):
     element: ElementFacts | None = None
 
 
+class NativeDialog(StrictModel):
+    """One browser dialog the surface answered, and the answer it gave.
+
+    type is what Playwright reports: alert, confirm, prompt or beforeunload.
+    An alert has one possible answer, so it is accepted. Everything else is a
+    question nobody recorded an answer to, so it takes the vendor's own "No"
+    and is dismissed. The message is kept because a native dialog is in no
+    ARIA snapshot and in no screenshot: this record is the only trace that it
+    happened at all.
+    """
+
+    type: str
+    message: str
+    answer: Literal["accepted", "dismissed"]
+
+
 class HumanAction(StrictModel):
     """One thing a person did while in control: what kind, on what, where. Never what they typed."""
 
@@ -188,6 +204,15 @@ class Surface(Protocol):
 
     def observe(self, screenshot_to: Path | None = None) -> Observation:
         """Perceive the page: the model needs it to decide, the evidence log needs it to prove."""
+        ...
+
+    def take_dialogs(self) -> list["NativeDialog"]:
+        """Hand back the native dialogs raised since the last ask, and forget them.
+
+        Taken rather than returned from act(), because a dialog can fire
+        after the click returns, during the load that follows. The caller
+        asks once the step's wait has settled, and so catches both.
+        """
         ...
 
     def resolve(self, target: TargetRef, timeout_ms: int = 2000) -> int:

@@ -181,3 +181,33 @@ def test_actions_the_surface_does_not_perform_are_rejected_before_touching_the_p
         surface.act(ActionType.EXTRACT, MEMBER_ID, None)
     with pytest.raises(ValueError, match="needs a target"):
         surface.act(ActionType.CLICK, None, None)
+
+
+def test_a_native_alert_is_accepted_at_once_and_remembered(
+    surface: PlaywrightSurface, signed_in_page: Page, base_url: str, faults: None
+) -> None:
+    arm_faults(base_url, native_alert_at_step=1)
+
+    signed_in_page.goto(f"{base_url}/members/M-100")
+
+    assert signed_in_page.title() == "Legacy Core Teller", "the page is not frozen behind it"
+    dialogs = surface.take_dialogs()
+    assert [(d.type, d.message, d.answer) for d in dialogs] == [
+        ("alert", "Your session will expire in 2 minutes.", "accepted")
+    ]
+    assert surface.take_dialogs() == [], "taken once"
+
+
+def test_a_native_confirm_is_dismissed_and_the_click_it_guarded_does_not_navigate(
+    surface: PlaywrightSurface, signed_in_page: Page, base_url: str, faults: None
+) -> None:
+    arm_faults(base_url, native_confirm_at_step=1)
+    signed_in_page.goto(f"{base_url}/members/results?member_id=M-100")
+
+    surface.act(ActionType.CLICK, target(role("link:Dana Whitfield")), None)
+
+    dialogs = surface.take_dialogs()
+    assert [(d.type, d.message, d.answer) for d in dialogs] == [
+        ("confirm", "Restricted member. Continue?", "dismissed")
+    ]
+    assert "/members/results" in signed_in_page.url, "dismiss is the vendor's own No"

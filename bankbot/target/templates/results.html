@@ -14,7 +14,7 @@
   <tbody>
     <tr>
       <td>{{ member.member_id }}</td>
-      <td><a href="{{ variant.prefix }}/members/{{ member.member_id }}">{{ member.name }}</a></td>
+      <td><a href="{{ variant.prefix }}/members/{{ member.member_id }}"{% if native_confirm %} onclick="return confirm('Restricted member. Continue?')"{% endif %}>{{ member.name }}</a></td>
       <td>{{ member.branch }}</td>
       {% if variant.show_status_column %}<td>{{ member.status }}</td>{% endif %}
     </tr>

@@ -91,11 +91,15 @@ class Page:
     """What a counted page knows before rendering.
 
     username None means the route redirects to login. show_dialog means the
-    injected "System notice" overlay rides along with this response.
+    injected "System notice" overlay rides along with this response;
+    native_alert and native_confirm are the browser's own dialogs, which no
+    ARIA snapshot and no screenshot can show.
     """
 
     username: str | None
     show_dialog: bool
+    native_alert: bool = False
+    native_confirm: bool = False
 
 
 def create_app(faults: Faults | None = None) -> FastAPI:
@@ -163,7 +167,12 @@ def build_variant_router(variant: Variant, shared: Shared) -> APIRouter:
         effects = faults.count_request()
         if effects.expire_session:
             sessions.clear()
-        return Page(username=signed_in_username(request), show_dialog=effects.show_dialog)
+        return Page(
+            username=signed_in_username(request),
+            show_dialog=effects.show_dialog,
+            native_alert=effects.native_alert,
+            native_confirm=effects.native_confirm,
+        )
 
     def render(
         request: Request,
@@ -179,6 +188,8 @@ def build_variant_router(variant: Variant, shared: Shared) -> APIRouter:
                 "variant": variant,
                 "username": page.username,
                 "show_dialog": page.show_dialog,
+                "native_alert": page.native_alert,
+                "native_confirm": page.native_confirm,
                 "money": money,
                 **context,
             },

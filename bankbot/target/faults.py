@@ -19,6 +19,8 @@ from bankbot.schemas.artifact import StrictModel
 SESSION_EXPIRY_ENV = "BANKBOT_SESSION_EXPIRY_AT_STEP"
 UNKNOWN_DIALOG_ENV = "BANKBOT_UNKNOWN_DIALOG_AT_STEP"
 SLOW_LOAD_ENV = "BANKBOT_SLOW_LOAD_MS"
+NATIVE_ALERT_ENV = "BANKBOT_NATIVE_ALERT_AT_STEP"
+NATIVE_CONFIRM_ENV = "BANKBOT_NATIVE_CONFIRM_AT_STEP"
 
 
 class Faults(StrictModel):
@@ -32,6 +34,10 @@ class Faults(StrictModel):
 
     session_expiry_at_step: int | None = None
     unknown_dialog_at_step: int | None = None
+    # The in-page modal above is markup the ARIA tree can see. These two are the
+    # browser's own dialogs, which no snapshot and no screenshot can show.
+    native_alert_at_step: int | None = None
+    native_confirm_at_step: int | None = None
     slow_load_ms: int = 0
 
     @classmethod
@@ -41,6 +47,8 @@ class Faults(StrictModel):
         for field, env_name in (
             ("session_expiry_at_step", SESSION_EXPIRY_ENV),
             ("unknown_dialog_at_step", UNKNOWN_DIALOG_ENV),
+            ("native_alert_at_step", NATIVE_ALERT_ENV),
+            ("native_confirm_at_step", NATIVE_CONFIRM_ENV),
             ("slow_load_ms", SLOW_LOAD_ENV),
         ):
             raw = os.environ.get(env_name, "").strip()
@@ -55,6 +63,8 @@ class RequestEffects:
 
     expire_session: bool
     show_dialog: bool
+    native_alert: bool
+    native_confirm: bool
 
 
 class FaultState:
@@ -76,6 +86,8 @@ class FaultState:
             self.counted = 0
             self._expiry_fired = False
             self._dialog_fired = False
+            self._alert_fired = False
+            self._confirm_fired = False
 
     def count_request(self) -> RequestEffects:
         """Advance the counter for one /members/... request and say which faults fire on it."""
@@ -83,10 +95,23 @@ class FaultState:
             self.counted += 1
             expire_session = False
             show_dialog = False
+            native_alert = False
+            native_confirm = False
             if self.faults.session_expiry_at_step == self.counted and not self._expiry_fired:
                 self._expiry_fired = True
                 expire_session = True
             if self.faults.unknown_dialog_at_step == self.counted and not self._dialog_fired:
                 self._dialog_fired = True
                 show_dialog = True
-            return RequestEffects(expire_session=expire_session, show_dialog=show_dialog)
+            if self.faults.native_alert_at_step == self.counted and not self._alert_fired:
+                self._alert_fired = True
+                native_alert = True
+            if self.faults.native_confirm_at_step == self.counted and not self._confirm_fired:
+                self._confirm_fired = True
+                native_confirm = True
+            return RequestEffects(
+                expire_session=expire_session,
+                show_dialog=show_dialog,
+                native_alert=native_alert,
+                native_confirm=native_confirm,
+            )

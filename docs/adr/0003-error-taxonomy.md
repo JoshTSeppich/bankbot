@@ -55,12 +55,24 @@ same question again. It goes straight to a person and the step's retries are
 left unspent.
 
 Every native dialog is answered the moment it opens, by one listener in the
-surface, and that is not a preference. While one is held open I measured
-`page.title()` and `locator.count()` hanging with no timeout of their own,
-and `screenshot()` and `aria_snapshot()` timing out. `observe()` uses all
-four. Keeping a dialog on screen for a person to look at would freeze every
-way this system has of looking at the page, including the screenshot the
-operator page is made of.
+surface, and that is not a preference. I measured it with an alert held open
+by a listener that answers nothing, one call per process, each killed at 20
+seconds:
+
+| Call | With a dialog open |
+|---|---|
+| `page.title()` | Never returned. Killed at 20 s. |
+| `locator.count()` | Never returned. Killed at 20 s. |
+| `page.screenshot(timeout=2000)` | Raised its own `TimeoutError` at 2.2 s. |
+| `locator.aria_snapshot()` | Never returned inside 20 s; its own default is 30 s. |
+| `page.title()`, no dialog | Returned in 0.00 s. |
+
+`_observe()` calls all four. The two that never came back take no timeout
+argument, so there is nothing to tune. `page.click()` does not come back
+either, which is why the listener has to answer before the action that
+raised the dialog can finish. Keeping a dialog on screen for a person to
+look at would freeze every way this system has of looking at the page,
+including the screenshot the operator page is made of.
 
 So the answer is given first and classified afterwards. An alert is accepted
 and logged as `native_dialog`, and the step carries on: it had one possible

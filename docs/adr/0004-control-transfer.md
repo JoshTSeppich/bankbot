@@ -48,6 +48,38 @@ step complete, checks the step's `wait_for` before trusting them.
 | Abort | Legal from any live state; replay asks the controller before every step, and a request on an aborted run is answered ABORT at once | An operator who sees a run going wrong can stop it before the next step, not only when it next asks. |
 | Operator page | Two Jinja pages, one stylesheet, the heartbeat is the only script | The mechanism is the deliverable; the page is not. |
 
+Nobody can say yes to a confirm, not even the person. The dialog listener
+is registered once, in the surface's constructor, and it answers for
+whoever raised the dialog. The operator's own click on the guarded control
+is dismissed the same way the engine's was, so hand back loops into the
+same click and the same confirm.
+
+Through the guarded control, abort is the only exit. Around it is a
+different story, and it is worse. The demo app's guard is an `onclick` on a
+link whose `href` carries no guard, which is how a legacy app writes one. A
+person who takes control can type the record's URL, press Mark step
+complete, and the step's `wait_for` holds, so the run finishes as `Success`
+with the balance in it. I did not reason this out, I ran it:
+`tests/control/test_handoff.py` has it. The vendor asked a question, nobody
+answered it, and the run reports success. There is no record anywhere that
+the guard was skipped.
+
+The fix is not a longer-lived dialog: ADR-0003 has the measurement that says
+a dialog held open freezes the surface. It is a single-use accept. A step
+gains an `on_dialog` expectation holding the dialog type, a pattern the
+message must match, and the answer to give. The policy treats a step with
+one as risky, so an unattended run asks a person before the step rather than
+after the dialog. The approval arms the listener to accept exactly once, for
+exactly that step, and it is cleared on a recovery rewind like any other
+approval. An artifact can then carry "this vendor asks 'Restricted member.
+Continue?' and the answer is yes", which is a reviewable fact about the app,
+and the accept is on the recorded path instead of being routed around it.
+
+The log would say a step was approved and not who approved it. There is no
+operator identity in this build: an approval is a step id added to a set,
+and the operator pages have no login. Attributing an approval needs auth
+first, and that is mocked and named as such in the README.
+
 ## Alternatives rejected
 
 - A second browser for the human (or a remote desktop): two sessions,
@@ -60,26 +92,6 @@ step complete, checks the step's `wait_for` before trusting them.
   there is nothing to explain.
 - Multi-operator, auth, a real console: out of scope. Mocked and named
   as such in the README.
-
-A confirm-guarded step can only end in abort, even with a person driving.
-The dialog listener is registered once, in the surface's constructor, and it
-answers for whoever raised the dialog. The operator's own click on the
-guarded control is dismissed the same way the engine's was. So hand back
-loops into the same click and the same confirm, and mark step complete
-cannot work either, because the person could not get past the confirm to
-complete it. Today the only honest exit is abort.
-
-The fix is not a longer-lived dialog: ADR-0003 has the measurement that says
-a dialog held open freezes the surface. It is a single-use accept. A step
-gains an `on_dialog` expectation holding the dialog type, a pattern the
-message must match, and the answer to give. The policy treats a step with
-one as risky, so an unattended run asks a person before the step rather than
-after the dialog. The approval arms the listener to accept exactly once, for
-exactly that step, and it is recorded like any other approval: one attempt,
-cleared on a recovery rewind, in the log with who gave it. An artifact can
-then carry "this vendor asks 'Restricted member. Continue?' and the answer
-is yes", which is a reviewable fact about the app, rather than a person
-saying yes into a browser where nothing records it.
 
 ## Consequences
 

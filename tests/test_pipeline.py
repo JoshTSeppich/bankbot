@@ -133,3 +133,14 @@ def test_a_member_who_is_not_listed_is_never_a_success(
     result = replay.run()
     assert isinstance(result, Failure | Outcome), result
     assert result.kind in ("failure", "outcome")
+
+
+def test_a_step_that_clicks_an_input_named_control_is_named_after_that_input(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    capability = record_on_m100(page, policy, base_url, tmp_path)
+    assert [step.id for step in capability.steps] == [
+        "open_start",
+        "click_member_id",
+        "read_savings_balance",
+    ]

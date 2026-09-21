@@ -75,7 +75,7 @@ def test_steps_follow_what_the_model_did_after_an_opening_navigate(recorded: Rec
         "open_start",
         "type_member_id",
         "click_search",
-        "click_dana_whitfield",
+        "click_link",
         "read_savings_balance",
     ]
     assert capability.steps[0].on_fail == Fail()
@@ -115,7 +115,7 @@ def test_url_changes_become_waits_and_the_last_assert_becomes_the_checkpoint(
 ) -> None:
     capability = compiled(recorded)
     search = next(step for step in capability.steps if step.id == "click_search")
-    opened = next(step for step in capability.steps if step.id == "click_dana_whitfield")
+    opened = next(step for step in capability.steps if step.id == "click_link")
     assert search.wait_for is not None and search.wait_for.url_pattern == "/members/results$"
     assert search.on_fail == Retry(retries=2)
     assert opened.wait_for is not None and opened.wait_for.url_pattern == "/members/[^/]+$"
@@ -260,7 +260,7 @@ def test_a_link_named_after_a_record_ranks_its_position_first_and_never_offers_i
     recorded: Recorded,
 ) -> None:
     capability = compiled(recorded)
-    link = next(step for step in capability.steps if step.id == "click_dana_whitfield")
+    link = next(step for step in capability.steps if step.id == "click_link")
     assert link.target is not None
     strategies = [candidate.strategy for candidate in link.target.candidates]
     assert strategies == [LocatorStrategy.CSS_STRUCTURAL, LocatorStrategy.BBOX]
@@ -282,3 +282,11 @@ def test_the_shipped_transcript_compiles_without_a_recorded_value_in_it() -> Non
     assert extracted, "the shipped run read something off the screen"
     for value in [*extracted, *transcript.params.values()]:
         assert value not in dumped, value
+
+
+def test_a_step_id_names_what_was_clicked_never_the_record_it_was_named_after() -> None:
+    transcript = Transcript.model_validate_json(SHIPPED_TRANSCRIPT.read_text())
+    capability = compile_capability(transcript, load_goal_spec(SHIPPED_GOAL))
+    ids = [step.id for step in capability.steps]
+    assert "click_dana_whitfield" not in ids, ids
+    assert "click_link" in ids, ids

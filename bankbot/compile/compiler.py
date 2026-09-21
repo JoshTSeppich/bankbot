@@ -173,15 +173,26 @@ def _acted_step(
     action = recorded.action
     kind = ActionType(action.action.value)
     element = recorded.element
+    input_name = _input_named(element, transcript) if element is not None else None
+    name_is_data = (
+        element is not None and input_name is None and _names_a_record(element, transcript)
+    )
     target = (
-        _target_for(
-            element, _model_sentence(action.reasoning, recorded_values), transcript, recorded_values
+        target_from_facts(
+            element,
+            _model_sentence(action.reasoning, recorded_values),
+            input_name=input_name,
+            name_is_data=name_is_data,
+            recorded_values=recorded_values,
         )
         if element is not None
         else None
     )
     wait_for = _wait_after(recorded, following, transcript, recorded_values)
-    step_id = _unique(f"{kind.value}_{_slug(action.name or action.url or kind.value)}", so_far)
+    step_id = _unique(
+        f"{kind.value}_{_slug(_step_words(action, element, input_name, name_is_data, kind))}",
+        so_far,
+    )
     step = Step(id=step_id, action=kind, target=target, wait_for=wait_for)
     if kind is ActionType.TYPE:
         step = step.model_copy(
@@ -201,18 +212,29 @@ def _acted_step(
     return step
 
 
-def _target_for(
-    element: ElementFacts, reasoning: str, transcript: Transcript, recorded_values: list[str]
-) -> TargetRef:
-    """Rank the acted control, asking "is this the caller's record?" before anything else."""
-    input_name = _input_named(element, transcript)
-    return target_from_facts(
-        element,
-        reasoning,
-        input_name=input_name,
-        name_is_data=input_name is None and _names_a_record(element, transcript),
-        recorded_values=recorded_values,
-    )
+def _step_words(
+    action: ProposedAction,
+    element: ElementFacts | None,
+    input_name: str | None,
+    name_is_data: bool,
+    kind: ActionType,
+) -> str:
+    """The words a step is named after: the application's own, never a record's.
+
+    A step id is read in the artifact, in every log line and in the event
+    sequence hash, so a control named after a member puts that member in all
+    three. The two cases where the name is data are the two the compiler
+    already tells apart for the locator. An input-named control takes the
+    input's name, which says the same thing about what was clicked and
+    belongs to the capability rather than to the caller. A record-named
+    control takes its role, because what it is survives the recording and
+    what it says does not; a second one of those gets a number from _unique.
+    """
+    if input_name is not None:
+        return input_name
+    if name_is_data:
+        return (element.role if element is not None and element.role else "") or kind.value
+    return action.name or action.url or kind.value
 
 
 def _input_named(element: ElementFacts, transcript: Transcript) -> str | None:

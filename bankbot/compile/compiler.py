@@ -64,6 +64,10 @@ class SecretLeakedIntoTranscript(Exception):
     """A typed value equals a secret. The transcript is not compiled, and should be destroyed."""
 
 
+class InputNamedControlHasNoRole(Exception):
+    """A control named by an input's value has no role, so no candidate can name that input."""
+
+
 def compile_capability(
     transcript: Transcript, spec: GoalSpec, secrets: Mapping[str, str] | None = None
 ) -> Capability:
@@ -174,6 +178,15 @@ def _acted_step(
     kind = ActionType(action.action.value)
     element = recorded.element
     input_name = _input_named(element, transcript) if element is not None else None
+    if element is not None and input_name is not None and not element.role:
+        # The templated candidate is spelled `role:{input:name}`, so with no
+        # role there is nothing to spell it with. The general ranking would
+        # hand back a structural path to the recorded record and say nothing
+        # about the input being dropped, and a quiet wrong answer on the next
+        # caller is worse than refusing the transcript.
+        raise InputNamedControlHasNoRole(
+            f"the control named by input {input_name} has no role; it cannot be located"
+        )
     name_is_data = (
         element is not None and input_name is None and _names_a_record(element, transcript)
     )

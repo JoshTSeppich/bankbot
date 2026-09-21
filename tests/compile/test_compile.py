@@ -6,6 +6,7 @@ import pytest
 from playwright.sync_api import Page
 
 from bankbot.compile import (
+    InputNamedControlHasNoRole,
     InputNeverUsed,
     NoCheckpointAsserted,
     SecretLeakedIntoTranscript,
@@ -290,3 +291,25 @@ def test_a_step_id_names_what_was_clicked_never_the_record_it_was_named_after() 
     ids = [step.id for step in capability.steps]
     assert "click_dana_whitfield" not in ids, ids
     assert "click_link" in ids, ids
+
+
+def test_a_control_named_by_an_input_and_with_no_role_refuses_to_compile(
+    recorded: Recorded,
+) -> None:
+    transcript, spec = recorded
+    # The legacy shape ADR-0002 names: a td or a span carrying an onclick,
+    # whose only name is the member id the caller passed in.
+    clicked = next(
+        step
+        for step in transcript.steps
+        if step.action.action is ToolAction.CLICK and step.element is not None
+    )
+    assert clicked.element is not None
+    onclick_cell = clicked.model_copy(
+        update={"element": clicked.element.model_copy(update={"role": None, "name": "M-100"})}
+    )
+    edited = transcript.model_copy(
+        update={"steps": [onclick_cell if step is clicked else step for step in transcript.steps]}
+    )
+    with pytest.raises(InputNamedControlHasNoRole, match="member_id"):
+        compile_capability(edited, spec)

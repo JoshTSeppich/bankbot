@@ -230,3 +230,20 @@ def test_the_extracted_rule_leaves_the_transcript_alone(
     )
     problems = verify_evidence(good_run.path.parent, redactor)
     assert not any("extracted" in problem for problem in problems)
+
+
+def test_a_resumed_run_is_not_read_as_a_repeat_of_the_run_it_sits_beside(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    # `_check_repeat_runs` splits a run id on its last `-`, so 05b-replay-handoff-resumed
+    # would pair with 05b-replay-handoff and be held to its event sequence. They are
+    # two different runs: one ends in a Failure, the other in a Success. The digit
+    # test is what keeps them apart, and this is what pins the digit test.
+    root = good_run.path.parent
+    write_run(root, "05b-replay-handoff", redactor, step_id="click_member")
+    write_run(root, "05b-replay-handoff-resumed", redactor, step_id="open_start")
+    assert verify_evidence(root, redactor) == []
+
+    # The same check still catches a real `--times` repeat that diverged.
+    write_run(root, "05b-replay-handoff-2", redactor, step_id="something_else")
+    assert any("05b-replay-handoff-2: event sequence" in p for p in verify_evidence(root, redactor))

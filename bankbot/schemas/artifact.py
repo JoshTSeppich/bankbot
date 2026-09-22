@@ -154,10 +154,12 @@ class LiteralValue(StrictModel):
 
 
 class Retry(StrictModel):
-    """On failure, try the same step again, up to `retries` more times (slow loads).
+    """On failure, try the same step again, up to `retries` more times.
 
     retries counts the extra tries, not the total: retries 2 means the
-    step runs at most three times.
+    step runs at most three times. Slow loads are what it is for, but
+    replay spends it on whatever an outcome, a dialog or a recovery did
+    not take first (ADR-0003), so a step that cannot pass burns all three.
     """
 
     kind: Literal["retry"] = "retry"

@@ -40,7 +40,7 @@ After every step, replay asks five questions in a fixed order that ADR-0003 argu
 1. Does a known outcome match? `text_visible: "No member found"` ends `03-replay-member-not-found` as `Outcome{member_not_found}` — an answer, not an exception.
 2. Did the step raise a native dialog nobody recorded an answer to? It is dismissed, the vendor's own "No", and a person asked without spending the retries, because a dismissed confirm means the action never happened.
 3. Does a known recovery match? `04-replay-session-expiry-recovered` injects an expiry mid-run; `session_expired` logs in and the run restarts from step one, because a re-login lands on the home screen.
-4. Does the step declare a retry? `retries: 2` means three tries, transient conditions only.
+4. Does the step declare a retry? `retries: 2` means three tries, meant for transient conditions and spent on any failure the three questions above did not take.
 5. Otherwise a human. In `05-replay-handoff` a modal blocks the click until the retries run out, reason `unknown_dialog`, and §5 has what the person did. With nobody attached the answer is abort: a `Failure` carrying step, expected and observed.
 
 ## 4. Heterogeneity & multi-tenant

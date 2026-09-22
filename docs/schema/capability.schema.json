@@ -352,7 +352,7 @@
     },
     "Retry": {
       "additionalProperties": false,
-      "description": "On failure, try the same step again, up to `retries` more times (slow loads).\n\nretries counts the extra tries, not the total: retries 2 means the\nstep runs at most three times.",
+      "description": "On failure, try the same step again, up to `retries` more times.\n\nretries counts the extra tries, not the total: retries 2 means the\nstep runs at most three times. Slow loads are what it is for, but\nreplay spends it on whatever an outcome, a dialog or a recovery did\nnot take first (ADR-0003), so a step that cannot pass burns all three.",
       "properties": {
         "kind": {
           "const": "retry",

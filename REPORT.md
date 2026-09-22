@@ -39,15 +39,15 @@ After every step, replay asks five questions in a fixed order that ADR-0003 argu
 
 1. Does a known outcome match? `text_visible: "No member found"` ends `03-replay-member-not-found` as `Outcome{member_not_found}` — an answer, not an exception.
 2. Did the step raise a native dialog nobody recorded an answer to? It is dismissed, the vendor's own "No", and a person asked without spending the retries, because a dismissed confirm means the action never happened.
-3. Does a known recovery match? `04-replay-session-expiry-recovered` injects an expiry mid-run; `session_expired` logs in and the run restarts from step one, because a re-login lands on the home screen.
-4. Does the step declare a retry? `retries: 2` means three tries, meant for transient conditions and spent on any failure the three questions above did not take.
-5. Otherwise a human. In `05-replay-handoff` a modal blocks the click until the retries run out, reason `unknown_dialog`, and §5 has what the person did. With nobody attached the answer is abort: a `Failure` carrying step, expected and observed.
+3. Does a known recovery match? `session_expired` logs in and the run restarts from step one, because a re-login lands on the home screen. A fresh browser meets the signed-in precondition the same way, which is why every replay lists one recovery and `04-replay-session-expiry-recovered`, which injects an expiry mid-run, lists two.
+4. Does the step declare a retry? `retries: 2` means three tries, meant for transient conditions and spent on any failure the questions above did not take.
+5. Otherwise a human. In `05-replay-handoff` a modal blocks the click until the retries run out, reason `unknown_dialog`. With nobody attached the answer is abort: a `Failure` carrying step, expected and observed.
 
 ## 4. Heterogeneity & multi-tenant
 
 Surface (ADR-0006). The Protocol is in `bankbot/surface/types.py`, and the artifact stores only what it takes: role and name, label, text, a structural path, a bounding box, a frame path, assertions of URL, visible text and visible target. A desktop `AXSurface` over a platform accessibility API resolves the same candidates — role and name map directly, the structural path becomes an AX tree path, the bounding box is already screen space — and the artifact does not change. A frameset app is the same surface, longer frame paths. Cross-origin iframes are untested.
 
-Multi-tenant (ADR-0001, ADR-0002). `app.variant` says which build an artifact was recorded on and `app.fingerprint` says what it looked like. The fingerprint is Lantern's method (github.com/JoshTSeppich/Lantern, my own earlier project): a screen's shape is the tuples a person meets tabbing through it, compared by edit distance, with names and values left out. `07-replay-variant-b` is the reuse story in miniature: one artifact, a second tenant's build, the search screen at distance 0 of 2, the version string different, the renamed button found by its structural path, the run successful. For the real environment the design is an overlay, not a re-record: a per-variant file replacing candidates or steps by id at load, the distance saying who needs one.
+Multi-tenant (ADR-0001, ADR-0002). `app.variant` says which build an artifact was recorded on and `app.fingerprint` says what it looked like. The fingerprint is Lantern's method, my own earlier project: a screen's shape is the tuples a person meets tabbing through it, compared by edit distance, names and values left out. `07-replay-variant-b` is the reuse story: one artifact, a second tenant's build, the search screen at distance 0 of 2, the version string different, the renamed button found by its structural path, the run successful. The design is an overlay, not a re-record: a per-variant file replacing candidates or steps by id at load, the distance saying who needs one.
 
 ## 5. Escalation & handoff
 
@@ -85,4 +85,4 @@ Limits. The allowlist is by URL and control name, so a destructive action behind
 | Code generation | The artifact is the spec a page object would be generated from |
 | Capability catalog | `Capability.inputs` and `outputs` are already a tool schema |
 
-Next, in order. Learn recoveries from the operator: clicks are already recorded as `human_action` events (`tests/control/test_state.py`), so the next build turns a resolved intervention into a proposed `Recovery` for approval. Then variant overlays keyed by `app.variant`. Then the catalog, whose seam is `Capability`.
+Next, in order. Learn recoveries from the operator: clicks are already recorded as `human_action` events (`tests/control/test_state.py`), so the next build turns a resolved intervention into a proposed `Recovery` for approval. Then variant overlays. Then the catalog, whose seam is `Capability`.

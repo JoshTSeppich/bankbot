@@ -52,7 +52,9 @@ in `_KEY`, `_TOKEN`, `_SECRET`, `_ID` or `_PASSWORD`, every parameter
 value of the run, and anything shaped like an SSN, a card number or a
 9 to 16 digit account number. Screenshots blur `input[type=password]`
 before capture. `make verify-evidence` checks the committed output
-against the same rules.
+against the same rules. Cookies named in `policy.yaml` are masked by name
+rather than by value, because the `Redactor` is built before the browser
+opens and the application has not minted a session for it to be told about.
 
 Failure text names, it does not quote. Redaction is the backstop, not the
 mechanism. Three places write prose about a run and each one is written to

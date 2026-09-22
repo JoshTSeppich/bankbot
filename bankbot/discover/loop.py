@@ -88,13 +88,24 @@ class DiscoveryCouldNotStart(Exception):
 
 @dataclass
 class Applied:
-    """What the loop did with one proposal, in the words the model gets back."""
+    """What the loop did with one proposal, in the words the log and the transcript get."""
 
     status: StepStatus
     detail: str
     policy: Decision | None = None
     element: ElementFacts | None = None
     extracted: dict[str, str] = field(default_factory=dict)
+    told_model: str | None = None
+
+    @property
+    def for_model(self) -> str:
+        """The model is told more than the log is, and only after an extract.
+
+        A model that just read a balance needs the balance to reason about it.
+        log.jsonl is committed as evidence and gets the output's name alone
+        (ADR-0005), so the two sentences have to be able to differ.
+        """
+        return self.told_model if self.told_model is not None else self.detail
 
 
 class Discovery:
@@ -231,7 +242,7 @@ class Discovery:
             messages.append(tool_use_message(decided))
 
             applied = self._apply(decided.action, observation)
-            messages.append(tool_result_message(decided, applied.detail))
+            messages.append(tool_result_message(decided, applied.for_model))
             self._record(index, observation, decided, applied)
 
             if decided.action.action is ToolAction.DONE and applied.status == "ok":
@@ -288,7 +299,11 @@ class Discovery:
         value = parse_output(name, spec, read.text)
         self._extracted[name] = value
         return Applied(
-            "ok", f"extracted {name} = {value}", element=read.element, extracted={name: value}
+            "ok",
+            f"extracted {name}",
+            element=read.element,
+            extracted={name: value},
+            told_model=f"extracted {name} = {value}",
         )
 
     def _apply_act(self, action: ProposedAction, observation: Observation) -> Applied:

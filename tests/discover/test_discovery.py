@@ -6,6 +6,7 @@ from anthropic.types import MessageParam
 from playwright.sync_api import Page
 
 from bankbot.discover import Decided, ProposedAction, StopReason, ToolAction
+from bankbot.evidence import Event, read_events
 from bankbot.policy import Policy
 from bankbot.schemas import InterventionDecision, InterventionReason, InterventionRequest
 from tests.discover.conftest import (
@@ -333,3 +334,28 @@ def test_the_model_is_told_when_its_click_raised_a_native_dialog(
         "'Restricted member. Continue?' and it was dismissed"
     )
     assert transcript.steps[3].status == "holds", "the click was refused; the page never moved"
+
+
+def test_the_discovery_log_names_the_output_it_read_and_never_what_it_said(
+    page: Page, policy: Policy, base_url: str, tmp_path: Path
+) -> None:
+    # The value is a member's balance and log.jsonl is committed as evidence.
+    # transcript.json is where it belongs: the compiler reads it from there.
+    discovery, run_dir = make_discovery(
+        lookup_spec(),
+        PARAMS,
+        ScriptedDecider(HAPPY_PATH),
+        page=page,
+        policy=policy,
+        base_url=base_url,
+        tmp_path=tmp_path,
+    )
+    transcript = discovery.run()
+    balance = transcript.steps[3].extracted["savings_balance"]
+
+    steps = [event for event in read_events(run_dir) if event["event"] == Event.DISCOVERY_STEP]
+    assert len(steps) == len(HAPPY_PATH), "the walk found fewer logged steps than the run took"
+    carrying = [step for step in steps if balance in json.dumps(step)]
+    assert carrying == []
+    assert [step["detail"] for step in steps][3] == "extracted savings_balance"
+    assert transcript.steps[3].extracted == {"savings_balance": balance}

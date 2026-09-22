@@ -177,3 +177,56 @@ def test_an_output_extracted_line_naming_only_the_output_passes(
     )
     good_run.log_path.write_text("\n".join([*was[:-1], named, was[-1]]) + "\n", encoding="utf-8")
     assert verify_evidence(good_run.path.parent, redactor) == []
+
+
+def test_a_discovery_step_line_that_carries_what_it_extracted_is_reported(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    # The discovery loop writes its read into the free-text `detail` of a
+    # `discovery_step`, so the `output_extracted` rule above never sees it.
+    # This is the line run 1 was committed with.
+    was = good_run.log_path.read_text(encoding="utf-8").splitlines()
+    stale = json.dumps(
+        {
+            "ts": "2026-09-19T10:00:00+00:00",
+            "event": Event.DISCOVERY_STEP.value,
+            "index": 3,
+            "action": "extract",
+            "detail": "extracted savings_balance = 4242.00",
+        }
+    )
+    good_run.log_path.write_text("\n".join([*was[:-1], stale, was[-1]]) + "\n", encoding="utf-8")
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert problems == [
+        "02-replay-success/log.jsonl:3: a discovery_step line carries what it "
+        "extracted, not just which output"
+    ]
+
+
+def test_a_discovery_step_line_naming_only_the_output_it_read_passes(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    was = good_run.log_path.read_text(encoding="utf-8").splitlines()
+    named = json.dumps(
+        {
+            "ts": "2026-09-19T10:00:00+00:00",
+            "event": Event.DISCOVERY_STEP.value,
+            "index": 3,
+            "action": "extract",
+            "detail": "extracted savings_balance",
+        }
+    )
+    good_run.log_path.write_text("\n".join([*was[:-1], named, was[-1]]) + "\n", encoding="utf-8")
+    assert verify_evidence(good_run.path.parent, redactor) == []
+
+
+def test_the_extracted_rule_leaves_the_transcript_alone(
+    good_run: RunDir, redactor: Redactor
+) -> None:
+    # transcript.json is where a read value legitimately lives: the compiler
+    # reads it from there. Only log.jsonl is held to the rule.
+    good_run.transcript_path.write_text(
+        json.dumps({"detail": "extracted savings_balance = 4242.00"}), encoding="utf-8"
+    )
+    problems = verify_evidence(good_run.path.parent, redactor)
+    assert not any("extracted" in problem for problem in problems)

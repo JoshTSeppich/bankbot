@@ -5,9 +5,10 @@ reports what is wrong with it: a log line that does not parse or names an
 event the code does not emit, a log that stops before the run finished, a
 result or capability or transcript that fails its schema, a screenshot a
 file points at that is not there, an output_extracted line carrying the value
-it read, any line or trace member that still carries a secret or something
-shaped like member PII, and a repeat of a run whose event sequence does not
-match the first run's.
+it read or a discovery_step saying what it extracted rather than which output,
+any line or trace member that still carries a secret or something shaped like
+member PII, and a repeat of a run whose event sequence does not match the
+first run's.
 
 A test walks the source and proves no call site logs an extracted value
 (tests/evidence/test_events.py). This asks a different question of the bytes
@@ -57,6 +58,11 @@ SCREENSHOT_FIELD = "screenshot"
 # The output's name is the record of the route the run took; what it said
 # belongs in result.json and nowhere else. Any other key on the line is fine.
 VALUE_FIELD = "value"
+# Discovery reports a read through the free-text `detail` of a discovery_step,
+# so the VALUE_FIELD rule cannot see it. The sentence names one output and
+# stops there, and an output name is an identifier.
+EXTRACTED_PREFIX = "extracted "
+OUTPUT_NAME = re.compile(r"[A-Za-z0-9_]+")
 # Trace members Playwright writes as one JSON object per line. A line that no
 # longer parses is how a redactor that cut too much would show up.
 JSON_LINE_MEMBERS = (".trace", ".network")
@@ -141,12 +147,31 @@ def _check_log(run: RunDir) -> Iterator[str]:
         yield from _check_screenshot(run, where, event.get(SCREENSHOT_FIELD))
         if event.get("event") == Event.OUTPUT_EXTRACTED and VALUE_FIELD in event:
             yield f"{where}: an {Event.OUTPUT_EXTRACTED} line carries the value it read"
+        if event.get("event") == Event.DISCOVERY_STEP:
+            yield from _check_extracted_detail(where, event.get("detail"))
         last_event = str(event.get("event"))
     # A log that stops anywhere else is a run that died with its evidence
     # half written, so what it does say cannot be trusted as the whole story.
     if last_event not in FINISHED_EVENTS:
         yield (
             f"{run.run_id}/{LOG_FILE}: the last event is {last_event!r}, so the run never finished"
+        )
+
+
+def _check_extracted_detail(where: str, detail: object) -> Iterator[str]:
+    """The discovery counterpart to the output_extracted rule, and log.jsonl only.
+
+    transcript.json says "extracted savings_balance = 4242.00" too, and there
+    it is correct: the compiler reads the value out of the transcript. The log
+    is the file committed for a reviewer to read, and run 1 was committed
+    before that distinction existed.
+    """
+    if not isinstance(detail, str) or not detail.startswith(EXTRACTED_PREFIX):
+        return
+    if not OUTPUT_NAME.fullmatch(detail.removeprefix(EXTRACTED_PREFIX)):
+        yield (
+            f"{where}: a {Event.DISCOVERY_STEP} line carries what it extracted, "
+            f"not just which output"
         )
 
 

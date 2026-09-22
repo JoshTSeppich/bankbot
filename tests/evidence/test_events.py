@@ -2,7 +2,14 @@ import ast
 from datetime import datetime
 from pathlib import Path
 
-from bankbot.evidence import Event, EvidenceWriter, RunDir, event_sequence_hash, read_events
+from bankbot.evidence import (
+    Event,
+    EvidenceWriter,
+    RunDir,
+    event_sequence_hash,
+    read_events,
+    route_url,
+)
 from bankbot.policy import Redactor
 
 PACKAGE = Path(__file__).parent.parent.parent / "bankbot"
@@ -94,3 +101,28 @@ def test_a_different_path_through_the_run_hashes_differently() -> None:
     reordered = list(reversed(base))
     assert event_sequence_hash(base) != event_sequence_hash(drifted)
     assert event_sequence_hash(base) != event_sequence_hash(reordered)
+
+
+def test_two_runs_of_one_target_hash_the_same_whatever_port_it_bound() -> None:
+    # The target binds an ephemeral port, so two `make replay` invocations in a
+    # row differ there and nowhere else. That is not two routes.
+    def started(base_url: str) -> list[dict[str, object]]:
+        return [{"ts": "t", "event": "run_started", "base_url": route_url(base_url)}]
+
+    assert event_sequence_hash(started("http://127.0.0.1:62739")) == event_sequence_hash(
+        started("http://127.0.0.1:53118")
+    )
+
+    # And the hash has not gone blunt: what the run did on the page still counts.
+    def resolved(index: int) -> list[dict[str, object]]:
+        return [{"ts": "t", "event": "target_resolved", "step_id": "a", "candidate_index": index}]
+
+    assert event_sequence_hash(resolved(0)) != event_sequence_hash(resolved(1))
+
+
+def test_a_logged_url_loses_its_port_and_keeps_everything_else() -> None:
+    assert route_url("http://127.0.0.1:62739") == "http://127.0.0.1"
+    # Variant B is served under a path prefix; run 7 would be a different route without it.
+    assert route_url("http://127.0.0.1:62757/b") == "http://127.0.0.1/b"
+    assert route_url("https://bank.example/members") == "https://bank.example/members"
+    assert route_url("http://localhost:8000") != route_url("http://127.0.0.1:8000")

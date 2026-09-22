@@ -21,7 +21,7 @@ import os
 from collections.abc import Mapping
 from urllib.parse import urlparse
 
-from bankbot.evidence import Event, EvidenceWriter, RunDir, read_events
+from bankbot.evidence import Event, EvidenceWriter, RunDir, read_events, route_url
 from bankbot.policy import Policy
 from bankbot.replay.escalation import Escalation, Unattended
 from bankbot.replay.steps import STEP_TIMEOUT_MS, PolicyBlocked, StepFailed, StepRunner
@@ -126,7 +126,7 @@ class Replay:
             capability=self.capability.id,
             version=self.capability.version,
             params=sorted(self.params),
-            base_url=self.base_url,
+            base_url=route_url(self.base_url),
         )
         self.surface.start_trace()
         try:

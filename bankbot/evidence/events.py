@@ -23,6 +23,7 @@ import hashlib
 import json
 from collections.abc import Iterable, Mapping
 from enum import StrEnum
+from urllib.parse import urlparse
 
 TIMESTAMP_FIELD = "ts"
 
@@ -59,14 +60,33 @@ class Event(StrEnum):
     HUMAN_ACTION = "human_action"
 
 
+def route_url(url: str) -> str:
+    """What a log line carries for a URL: all of it but the port.
+
+    The demo target binds an ephemeral port, so two `make replay` runs an
+    hour apart point at the same app through a different number. That number
+    is a fact about this process, not about the route the run took, and a
+    reviewer checking the determinism claim by hand would otherwise get two
+    hashes for two identical runs. Stripping it here rather than inside
+    event_sequence_hash keeps the log carrying exactly what the hash hashes.
+    """
+    parsed = urlparse(url)
+    if parsed.port is None or parsed.hostname is None:
+        return url
+    return parsed._replace(netloc=parsed.hostname).geturl()
+
+
 def event_sequence_hash(events: Iterable[Mapping[str, object]]) -> str:
     """One sha256 over the run's events in order, timestamps stripped.
 
     Everything else stays in, including which candidate resolved, so two
-    runs hash the same only when they took the same path. Not the values
-    read off the page: `output_extracted` logs the output's name and
-    result.json holds what it said. The hash is a claim about the route the
-    run took, not about the answer it came back with.
+    runs hash the same only when they took the same path. Two things are
+    deliberately not in the events it reads. The values off the page:
+    `output_extracted` logs the output's name and result.json holds what it
+    said. And the target's port, dropped by `route_url` before `run_started`
+    is written, because the log should carry what this hashes. The hash is a
+    claim about the route the run took, not about the answer it came back
+    with or the socket it came back through.
     """
     digest = hashlib.sha256()
     for event in events:

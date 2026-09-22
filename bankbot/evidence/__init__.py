@@ -16,7 +16,7 @@ Governed by ADR-0005 (policy model: the redaction boundary lives here) and
 ADR-0003 (error taxonomy: results are persisted as the schema defines them).
 """
 
-from bankbot.evidence.events import Event, event_sequence_hash
+from bankbot.evidence.events import Event, event_sequence_hash, route_url
 from bankbot.evidence.run_dir import RunDir, RunDirectoryExists, RunDirectoryMissing, new_run_id
 from bankbot.evidence.writer import EvidenceWriter, Redacting, read_events
 
@@ -30,4 +30,5 @@ __all__ = [
     "event_sequence_hash",
     "new_run_id",
     "read_events",
+    "route_url",
 ]

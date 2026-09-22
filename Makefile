@@ -6,8 +6,7 @@ EVIDENCE  = --runs-dir evidence --keep-trace
 
 .PHONY: review test lint discover replay replay-notfound replay-expiry replay-dialog replay-variant-b \
         operator demo verify-evidence \
-        evidence-01 evidence-02 evidence-03 evidence-04 evidence-05 evidence-05b \
-        evidence-06 evidence-07
+        evidence-01 evidence-02 evidence-03 evidence-04 evidence-05 evidence-06 evidence-07
 
 # A fresh clone has no .env, and the demo credentials live in it, so every
 # target below that runs the CLI depends on this file existing. Not .PHONY:
@@ -69,27 +68,17 @@ demo: discover replay replay-notfound replay-expiry
 # and the whole set is:
 #
 #     rm -rf evidence && make evidence-01 evidence-02 evidence-03 \
-#         evidence-04 evidence-05 evidence-05b evidence-07 evidence-06 \
-#         && make verify-evidence
+#         evidence-04 evidence-05 evidence-07 evidence-06 && make verify-evidence
 #
 # Rebuilding the artifact alone needs no key and no model call, because the
 # transcript of the recorded run is committed beside it:
 #
 #     uv run python -m bankbot.cli compile evidence/01-discovery
 #
-# evidence-05 and evidence-05b are the two that need a person. Each opens a
-# browser window and prints an operator URL.
-#
-# In 05 the person never touches the browser: Take control, Mark step
-# complete, the engine checking the step's wait_for and disagreeing, then Take
-# control and Abort. It ends as a Failure, and that disagreement is the point.
-#
-# In 05b the person does the manual step. Take control, dismiss the modal in
-# the browser window itself, then Hand back. The engine re-checks the step's
-# wait_for, agrees this time, and the run ends success with savings_balance
-# 4242.00. Because the work happened in the browser, the log carries
-# human_action events between intervention_requested and intervention_answered;
-# 05 has none. README has both sequences.
+# evidence-05 is the one that needs a person. It opens a browser window and
+# prints an operator URL; what the committed run records is Take control,
+# Mark step complete, the engine checking the step's wait_for and disagreeing,
+# then Take control and Abort. README has the sequence.
 evidence-01: .env
 	$(CLI) discover --goal "look up the savings balance for the member" --param member_id=M-100 \
 	  --runs-dir evidence --run-id 01-discovery
@@ -107,10 +96,6 @@ evidence-04: .env
 evidence-05: .env
 	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=2 \
 	  $(EVIDENCE) --run-id 05-replay-handoff
-
-evidence-05b: .env
-	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=2 \
-	  $(EVIDENCE) --run-id 05b-replay-handoff-resumed
 
 evidence-06: .env
 	$(CLI) discover --spec bankbot/discover/goals/close_member_account.json --param member_id=M-100 \

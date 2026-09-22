@@ -20,6 +20,10 @@ SPELLINGS = (
     b"p@ss &quot;w&amp;rd",
 )
 POST_BODY = b"username=teller&password=p%40ss+%22w%26rd"
+# The app mints this after the login, so the redactor is never told the value.
+# It is masked by name, and the name is written two ways in one archive.
+SESSION_COOKIE = "teller_session"
+COOKIE_VALUE = "HtD2PQC3-LYOCDq6"
 SNAPSHOT = b'<input name="password" value="p@ss &quot;w&amp;rd"><p>p@ss "w&rd</p>'
 JPEG = b"\xff\xd8\xff\xe0 a screenshot, never rewritten"
 JSON_MEMBERS = ("trace.trace", "trace.network", "trace.stacks")
@@ -43,8 +47,25 @@ def build_trace(path: Path, home: Path) -> dict[str, str]:
                 "type": "resource-snapshot",
                 "snapshot": {
                     "request": {
-                        "url": "http://127.0.0.1:8000/login?p=p%40ss%20%22w%26rd",
+                        "url": (
+                            "http://127.0.0.1:8000/login?p=p%40ss%20%22w%26rd"
+                            f"&c={SESSION_COOKIE}%3D{COOKIE_VALUE}"
+                        ),
                         "postData": {"text": POST_BODY.decode()},
+                        "headers": [
+                            {"name": "Cookie", "value": f"{SESSION_COOKIE}={COOKIE_VALUE}"}
+                        ],
+                    },
+                    "response": {
+                        "headers": [
+                            {
+                                "name": "set-cookie",
+                                "value": (
+                                    f"{SESSION_COOKIE}={COOKIE_VALUE}"
+                                    "; HttpOnly; Path=/; SameSite=lax"
+                                ),
+                            }
+                        ]
                     },
                     "_sha1": post_name.removeprefix("resources/"),
                 },
@@ -75,7 +96,9 @@ def run(tmp_path: Path) -> RunDir:
 def kept(run: RunDir) -> RunDir:
     """A run whose trace went through EvidenceWriter.keep_trace, the way a real run keeps one."""
     build_trace(run.trace_path, Path.home())
-    EvidenceWriter(run, Redactor(secret_values=[PASSWORD])).keep_trace(True)
+    EvidenceWriter(
+        run, Redactor(secret_values=[PASSWORD], cookie_names=[SESSION_COOKIE])
+    ).keep_trace(True)
     return run
 
 
@@ -83,6 +106,19 @@ def test_a_kept_trace_holds_no_secret_in_any_spelling(kept: RunDir) -> None:
     for name, data in members_of(kept.trace_path).items():
         for spelling in SPELLINGS:
             assert spelling not in data, f"{spelling!r} survived in {name}"
+
+
+def test_a_kept_trace_holds_no_session_cookie(kept: RunDir) -> None:
+    for name, data in members_of(kept.trace_path).items():
+        assert COOKIE_VALUE.encode() not in data, f"the session value survived in {name}"
+
+
+def test_masking_a_cookie_keeps_the_header_and_its_attributes(kept: RunDir) -> None:
+    # The value goes; the record that a session was set stays, because a trace
+    # with no cookie at all reads as an app that never logged anyone in.
+    network = members_of(kept.trace_path)["trace.network"].decode()
+    assert f"{SESSION_COOKIE}={MASK}" in network
+    assert "HttpOnly; Path=/; SameSite=lax" in network
 
 
 def test_a_kept_trace_holds_no_home_path(kept: RunDir) -> None:
@@ -94,7 +130,8 @@ def test_a_kept_trace_holds_no_home_path(kept: RunDir) -> None:
 
 def test_a_redacted_trace_still_parses_line_by_line(run: RunDir) -> None:
     build_trace(run.trace_path, Path.home())
-    redact_trace(run.trace_path, Redactor(secret_values=[PASSWORD]), Path.home())
+    redactor = Redactor(secret_values=[PASSWORD], cookie_names=[SESSION_COOKIE])
+    redact_trace(run.trace_path, redactor, Path.home())
     members = members_of(run.trace_path)
     for name in JSON_MEMBERS:
         for line in members[name].decode().splitlines():
@@ -118,7 +155,7 @@ def test_a_resource_that_held_a_secret_is_renamed_by_its_new_hash(run: RunDir) -
 
 def test_redacting_a_clean_trace_twice_changes_nothing(run: RunDir) -> None:
     build_trace(run.trace_path, Path.home())
-    redactor = Redactor(secret_values=[PASSWORD])
+    redactor = Redactor(secret_values=[PASSWORD], cookie_names=[SESSION_COOKIE])
     redact_trace(run.trace_path, redactor, Path.home())
     once = run.trace_path.read_bytes()
     redact_trace(run.trace_path, redactor, Path.home())

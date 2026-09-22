@@ -35,6 +35,10 @@ redaction:
   secret_env_suffixes: [_KEY, _TOKEN, _SECRET, _ID, _PASSWORD]
   # Fields blurred in every screenshot before it is saved.
   mask_selectors: ["input[type=password]"]
+  # Cookies whose value is masked wherever it is written down. By name, not by
+  # value: the application mints a session after the login, long after the
+  # redactor was built, so nothing can hand it the value to look for.
+  secret_cookie_names: [teller_session]
 
 # Variant drift: a key screen's tab sequence is compared to the recording
 # by edit distance. More than this share of the sequence changed means the

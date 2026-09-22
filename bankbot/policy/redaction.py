@@ -35,6 +35,11 @@ CARD_NUMBER_PATTERN = re.compile(r"\b(?:\d{4}[ -]?){3}\d{1,7}\b")
 # Account numbers have no fixed shape, so I take any run of 9 to 16 digits.
 # This also catches a 16-digit card written without separators.
 ACCOUNT_NUMBER_PATTERN = re.compile(r"\b\d{9,16}\b")
+# What follows `name=` in a cookie header, up to whatever ends it: the attribute
+# separator, the end of a Set-Cookie list, or the quote closing the JSON string a
+# trace writes it inside. Keeping those delimiters is what leaves the archive
+# parseable and leaves `; HttpOnly; Path=/` readable after the value is gone.
+COOKIE_VALUE_BYTES = rb'[^;,"\\\s]*'
 
 
 class Redactor:
@@ -45,19 +50,28 @@ class Redactor:
     one readable.
     """
 
-    def __init__(self, secret_values: Iterable[str]) -> None:
+    def __init__(self, secret_values: Iterable[str], cookie_names: Iterable[str] = ()) -> None:
         kept = {value for value in secret_values if len(value) >= MIN_SECRET_LENGTH}
         self._secret_values = sorted(kept, key=len, reverse=True)
         spellings = {written for value in kept for written in _spellings(value)}
         self._secret_spellings = sorted(
             (written.encode() for written in spellings), key=len, reverse=True
         )
+        # By name, because the value does not exist yet. A session cookie is minted
+        # by the application during the run, and this object is built before the
+        # browser opens, so there is no value anyone could have handed it.
+        self._cookie_patterns = [
+            re.compile(b"(" + re.escape(written.encode()) + b")" + COOKIE_VALUE_BYTES)
+            for name in cookie_names
+            for written in _spellings(f"{name}=")
+        ]
 
     @classmethod
     def from_environment(
         cls,
         extra_values: Iterable[str] = (),
         suffixes: Sequence[str] | None = None,
+        cookie_names: Iterable[str] = (),
     ) -> Redactor:
         """Build a redactor that knows this process's credentials without being told each one.
 
@@ -67,7 +81,7 @@ class Redactor:
         """
         chosen = DEFAULT_SECRET_ENV_SUFFIXES if suffixes is None else tuple(suffixes)
         from_env = [value for name, value in os.environ.items() if name.endswith(chosen)]
-        return cls([*from_env, *extra_values])
+        return cls([*from_env, *extra_values], cookie_names=cookie_names)
 
     def text(self, text: str) -> str:
         """Mask one string; this is the single place the masking rules are applied."""
@@ -98,13 +112,20 @@ class Redactor:
     def bytes(self, data: bytes) -> bytes:
         """Mask known values inside a file this codebase did not write, such as a browser trace.
 
-        Known values only, and none of the shape rules `text` applies. A
-        Playwright trace is full of 13-digit millisecond timestamps, and the
-        digit-run rule would eat every one of them and leave the archive's
-        JSON lines unparseable.
+        Known values, and one rule that is not a value: a cookie named in
+        `policy.yaml` has whatever follows its `=` masked. None of the shape
+        rules `text` applies, because a Playwright trace is full of 13-digit
+        millisecond timestamps and the digit-run rule would eat every one of
+        them and leave the archive's JSON lines unparseable. The cookie rule
+        is safe here where those are not, because it fires only after a name
+        somebody wrote down, never on a number that happens to look wrong.
         """
         for spelling in self._secret_spellings:
             data = data.replace(spelling, MASK_BYTES)
+        for pattern in self._cookie_patterns:
+            # Group 1 is the name and its separator, kept however it was spelled;
+            # a percent-encoded `%3D` has no `=` to find by searching for one.
+            data = pattern.sub(lambda match: match.group(1) + MASK_BYTES, data)
         return data
 
 

@@ -161,7 +161,13 @@ def test_policy_redactor_uses_the_suffixes_from_the_file(
     custom = load_policy(
         write_policy(
             tmp_path,
-            {"redaction": {"secret_env_suffixes": ["_PIN"], "mask_selectors": []}},
+            {
+                "redaction": {
+                    "secret_env_suffixes": ["_PIN"],
+                    "mask_selectors": [],
+                    "secret_cookie_names": [],
+                }
+            },
         )
     )
     monkeypatch.setenv("FAKE_TELLER_PIN", "fake-pin-value-9x")

@@ -61,6 +61,7 @@ class RedactionRules(StrictModel):
 
     secret_env_suffixes: list[str]
     mask_selectors: list[str]
+    secret_cookie_names: list[str]
 
 
 class FingerprintRules(StrictModel):
@@ -146,9 +147,11 @@ class Policy(StrictModel):
         return self.redaction.mask_selectors
 
     def redactor(self, extra_values: Iterable[str] = ()) -> Redactor:
-        """Build the Redactor with the env suffixes from this policy rather than the defaults."""
+        """Build the Redactor with the env suffixes and cookie names from this policy."""
         return Redactor.from_environment(
-            extra_values=extra_values, suffixes=self.redaction.secret_env_suffixes
+            extra_values=extra_values,
+            suffixes=self.redaction.secret_env_suffixes,
+            cookie_names=self.redaction.secret_cookie_names,
         )
 
 

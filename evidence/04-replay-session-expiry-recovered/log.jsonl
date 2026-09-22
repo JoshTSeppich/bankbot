@@ -1,4 +1,4 @@
-{"ts": "2026-09-21T23:39:25.178815+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1:62753"}
+{"ts": "2026-09-21T23:39:25.178815+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1"}
 {"ts": "2026-09-21T23:39:26.221572+00:00", "event": "recovery_started", "recovery": "session_expired"}
 {"ts": "2026-09-21T23:39:26.221957+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
 {"ts": "2026-09-21T23:39:26.288099+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}

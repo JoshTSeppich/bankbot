@@ -33,7 +33,7 @@ Three shape decisions I would defend first:
 
 Replay is an interpreter over the artifact: no model, no heuristics, no undeclared retries, no sleeps. The `assert_state`s discovery recorded become each step's `wait_for`, the last is the checkpoint, and outputs are parsed by declared type (`$4,242.00` to `4242.00`) and returned only once it holds.
 
-I check determinism rather than assert it. `replay --times N` runs the capability N times in fresh browsers against one target and hashes each event sequence, timestamps stripped and everything else kept. Not the value read off the page: the log names the output, `result.json` holds it, and the command compares both and exits non-zero if either disagrees. Evidence run 2 is five runs, all `sha256:bc44a8db…e7781b1b`, all returning `4242.00`, recomputable by `make verify-evidence`.
+I check determinism rather than assert it. `replay --times N` runs the capability N times in fresh browsers against one target and hashes each event sequence, timestamps stripped and everything else kept. Not the value read off the page: the log names the output, `result.json` holds it, and the command compares both and exits non-zero if either disagrees. Evidence run 2 is five runs, all `sha256:fdb6facc…5f951629`, all returning `4242.00`, recomputable by `make verify-evidence`.
 
 After every step, replay asks five questions in a fixed order that ADR-0003 argues for:
 

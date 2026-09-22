@@ -67,6 +67,8 @@ DEFAULT_SPEC = GOALS_DIR / "lookup_savings_balance.json"
 DEFAULT_RUNS_DIR = Path("runs")
 DEFAULT_EVIDENCE_DIR = Path("evidence")
 RECORDED_CAPABILITY = DEFAULT_EVIDENCE_DIR / "01-discovery" / "capability.json"
+# Only the `operator` subcommand, which browses finished runs and is worth finding
+# at the same address twice. A run's own operator page takes whatever port is free.
 OPERATOR_PORT = 8765
 VARIANT_PREFIXES = {"a": "", "b": "/b"}
 TARGET_PROBE_TIMEOUT_S = 2.0
@@ -328,9 +330,11 @@ def _replay(args: argparse.Namespace) -> int:
                     )
                     registry.add(controller)
                     if not operator_started:
-                        operator = start_server(
-                            create_operator_app(registry, args.runs_dir), OPERATOR_PORT
-                        )
+                        # Any free port. A handoff run holds its operator page open for
+                        # as long as it waits for a person, so a fixed number means the
+                        # next headed run dies on bind before the browser opens. The URL
+                        # is printed on the line below; nothing has to guess it.
+                        operator = start_server(create_operator_app(registry, args.runs_dir))
                         operator_started = True
                     print(f"operator page: {operator.base_url}/operator/{run_id}", file=sys.stderr)
                 result = Replay(

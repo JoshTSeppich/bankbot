@@ -35,13 +35,13 @@ Replay is an interpreter over the artifact: no model, no heuristics, no undeclar
 
 I check determinism rather than assert it. `replay --times N` runs the capability N times in fresh browsers against one target and hashes each event sequence, timestamps stripped and everything else kept. Not the value read off the page: the log names the output, `result.json` holds it, and the command compares both and exits non-zero if either disagrees. Evidence run 2 is five runs, all `sha256:bc44a8db…e7781b1b`, all returning `4242.00`, recomputable by `make verify-evidence`.
 
-After every step, replay asks five questions in a fixed order that ADR-0003 argues for. Each has an evidence directory behind it:
+After every step, replay asks five questions in a fixed order that ADR-0003 argues for:
 
 1. Does a known outcome match? `text_visible: "No member found"` ends `03-replay-member-not-found` as `Outcome{member_not_found}` — an answer, not an exception.
 2. Did the step raise a native dialog nobody recorded an answer to? It is dismissed, the vendor's own "No", and a person asked without spending the retries, because a dismissed confirm means the action never happened.
 3. Does a known recovery match? `04-replay-session-expiry-recovered` injects an expiry mid-run; `session_expired` logs in and the run restarts from step one, because a re-login lands on the home screen.
 4. Does the step declare a retry? `retries: 2` means three tries, transient conditions only.
-5. Otherwise a human. In `05-replay-handoff` a modal blocks the click, the reason is `unknown_dialog`, and unattended the answer is abort: a `Failure` carrying step, expected and observed.
+5. Otherwise a human. In `05-replay-handoff` a modal blocks the click until the retries run out, reason `unknown_dialog`, and §5 has what the person did. With nobody attached the answer is abort: a `Failure` carrying step, expected and observed.
 
 ## 4. Heterogeneity & multi-tenant
 
@@ -53,11 +53,11 @@ Multi-tenant (ADR-0001, ADR-0002). `app.variant` says which build an artifact wa
 
 ADR-0004. Stuck is detected in three places: discovery when the model proposes a risky action, is blocked twice running, or changes nothing three times; replay when the five questions run out; the checkpoint when it does not hold. Each raises an `InterventionRequest` (`bankbot/schemas/intervention.py`) carrying the capability, goal, step, expected, observed, a reason, a masked screenshot, the redacted log tail and parameter names.
 
-The state machine is `AUTOMATION → INTERVENTION_REQUESTED → HUMAN → RESUME_REQUESTED → AUTOMATION`, with `ABORTED` from any live state, held by one `RunController` under one lock the engine thread and the operator app share. The engine blocks inside `request()`, in the step loop, which is what lets it continue from the same step.
+The state machine is `AUTOMATION → INTERVENTION_REQUESTED → HUMAN → RESUME_REQUESTED → AUTOMATION`, with `ABORTED` from any live state, held by one `RunController` under one lock the engine and the operator app share. The engine blocks inside `request()`, in the step loop, which is what lets it resume that step.
 
-The person drives the same browser window the engine opened. While the engine waits it pumps Playwright, screenshots the page for the operator, and records every click, edit and navigation as a `human_action` event, typed values dropped before reaching Python. It is idle for exactly the span between ask and answer, so anything that happened was a person. `tests/control/test_handoff.py` drives that on a real browser.
+The person drives the same browser window the engine opened. While the engine waits it pumps Playwright, screenshots the page for the operator, and records every click, edit and navigation as a `human_action` event, typed values dropped before reaching Python. `tests/control/test_handoff.py` drives that on a real browser; ADR-0004 has why the window is the whole ask-to-answer span.
 
-`05-replay-handoff` is a real person on the operator page: take control, mark the step complete, the engine checking that step's `wait_for` and disagreeing, take control again, abort. It is the run I would show first, because that third step is the engine refusing to take a person's word.
+`05-replay-handoff` is a real person on the operator page: take control, mark the step complete, the engine checking that step's `wait_for` and disagreeing, take control again, abort. It ends as a `Failure` on `checkpoint_unmet`, and it is the run I would show first: that third step is the engine refusing to take a person's word.
 
 Mocked: one operator, no login, a two-second refresh instead of a stream.
 

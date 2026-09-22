@@ -51,7 +51,7 @@ Every row is a committed directory with its log, screenshots and trace. `make ve
 | Replay, five times | `make evidence-02` | `evidence/02-replay-success` and `-2` to `-5` | Determinism: one event-sequence hash and one answer across five fresh browsers |
 | A member who does not exist | `make evidence-03` | `evidence/03-replay-member-not-found` | A known business outcome is a result, not a failure |
 | Session expiry mid-run | `make evidence-04` | `evidence/04-replay-session-expiry-recovered` | A declared recovery runs, the rewind re-logs in, the run still succeeds |
-| An unknown modal, with an operator | `make evidence-05` | `evidence/05-replay-handoff` | A person takes the live session, claims the step, and the engine checks its `wait_for`, disagrees and asks again |
+| An unknown modal, with an operator | `make evidence-05` | `evidence/05-replay-handoff` | A person takes the live session, claims the step, and the engine checks its `wait_for`, disagrees and asks again. Ends as a `Failure`, aborted: the engine does not take a person's word |
 | A risky goal | `make evidence-06` | `evidence/06-discovery-risky-blocked` | The policy blocks an irreversible action the model proposed, and nothing compiles |
 | A second tenant's build | `make evidence-07` | `evidence/07-replay-variant-b` | One artifact on a different build: two drift warnings, still success |
 

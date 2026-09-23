@@ -99,13 +99,18 @@ Easier: the handoff is testable end to end in one process with a fake
 person on the engine thread; `tests/control/test_handoff.py` is that test,
 and it drives a real browser on every commit.
 
-Evidence run 5 is the same machinery with a real person on the operator
-page: take control, mark the step complete, the engine checking the step's
-`wait_for` and disagreeing, take control again, abort. It is the run I would
-show first, because step three is the engine refusing to take a person's word
-for it. A person who works only from the operator page leaves no
-`human_action` events, since those are reported by the browser; the test is
-what covers those.
+Two evidence runs are the same machinery with a person at the controls.
+`05b` is the resumed path: the person takes control, clicks OK on the notice
+in the browser window, and hands back. Those clicks are in its log as
+`human_action` events, and the engine re-runs the step it stopped on and
+finishes as `Success`. `05` is the refusal path: take control, mark the step
+complete, the engine checking the step's `wait_for` and disagreeing, take
+control again, abort. It is the run I would show first, because step three is
+the engine refusing to take a person's word for it. One limit shows in `05b`:
+a field the engine typed into and left focused reports its `change` when the
+person's first click moves focus away, so the log carries one `input` the
+person did not make. Watching `input` events instead of `change` would record
+only real keystrokes, and is the fix.
 
 Harder: the engine thread owns Playwright, so a person's actions can
 only be observed, never scripted from the operator thread. Every test

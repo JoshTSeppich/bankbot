@@ -57,7 +57,7 @@ The state machine is `AUTOMATION → INTERVENTION_REQUESTED → HUMAN → RESUME
 
 The person drives the same browser window the engine opened. While the engine waits it pumps Playwright, screenshots the page for the operator, and records every click, edit and navigation as a `human_action` event, typed values dropped before reaching Python. `tests/control/test_handoff.py` drives that on a real browser; ADR-0004 has why the window is the whole ask-to-answer span.
 
-`05-replay-handoff` is a real person on the operator page: take control, mark the step complete, the engine checking that step's `wait_for` and disagreeing, take control again, abort. It ends as a `Failure` on `checkpoint_unmet`, and it is the run I would show first: that third step is the engine refusing to take a person's word.
+Two runs show the handoff. In `05b-replay-handoff-resumed` a person takes control, clicks OK on the notice in the same browser window, and hands back; the click is logged as a `human_action` event and the engine resumes the step it stopped on and finishes as `Success`. In `05-replay-handoff` the operator instead marks the step complete without clearing the notice; the engine checks that step's `wait_for`, it does not hold, and a second intervention follows, then abort, then a `Failure` on `checkpoint_unmet`: the engine does not take a person's word for it. One limit shows in `05b`: a field the engine typed into and left focused reports its `change` when the person's first click moves focus away, so the log carries one `input` the person did not make. Watching `input` events instead of `change` would record only real keystrokes, and is the fix.
 
 Mocked: one operator, no login, a two-second refresh instead of a stream.
 

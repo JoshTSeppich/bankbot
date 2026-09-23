@@ -94,8 +94,10 @@ Every row is a committed directory holding its log, screenshots and trace. `make
 | A member who does not exist | `make evidence-03` | [`03-replay-member-not-found`](evidence/03-replay-member-not-found) | A business outcome is a result, not a failure |
 | Session expiry mid-run | `make evidence-04` | [`04-replay-session-expiry-recovered`](evidence/04-replay-session-expiry-recovered) | A declared recovery runs, the rewind logs back in, the run still succeeds |
 | An unknown modal, with an operator | `make evidence-05` | [`05-replay-handoff`](evidence/05-replay-handoff) | A person takes the live session and claims the step; checkpoint validation rejects the claim and the run ends as a `Failure` |
+| The same modal, dismissed by a person | `make evidence-05b` | [`05b-replay-handoff-resumed`](evidence/05b-replay-handoff-resumed) | A person takes the live session, clicks OK and hands back; the click is logged as a `human_action` event and the run resumes to `Success` |
 | A risky goal | `make evidence-06` | [`06-discovery-risky-blocked`](evidence/06-discovery-risky-blocked) | Policy blocks an irreversible action the model proposed, and nothing compiles |
 | A second tenant's build | `make evidence-07` | [`07-replay-variant-b`](evidence/07-replay-variant-b) | One artifact on a different build: two drift warnings, still success |
+| A member the recording never saw | `make evidence-08` | [`08-replay-success-m101`](evidence/08-replay-success-m101) | Parameters are real: `M-101` returns `1050.25`, a value that appears nowhere in the recording |
 
 `evidence-01` and `evidence-06` are the only commands here that call a model. Rebuilding the artifact without one is `uv run python -m bankbot.cli compile evidence/01-discovery`. A run directory is never overwritten, so redoing one means deleting it first; the [Makefile](Makefile) has the exact commands and the order.
 
@@ -151,7 +153,7 @@ make verify-evidence        # re-read every directory under evidence/ and recomp
 - [REPORT.md](REPORT.md) — the write-up, under the seven headings from the brief.
 - [docs/adr/](docs/adr) — the six decisions the design rests on, with the alternatives I rejected.
 - [docs/schema/capability.schema.json](docs/schema/capability.schema.json) — the artifact contract as JSON Schema.
-- [evidence/](evidence) — the seven runs in the table above, in eleven directories because run 2 is replayed five times.
+- [evidence/](evidence) — the nine runs in the table above, in thirteen directories because run 2 is replayed five times.
 - [policy.yaml](policy.yaml) — the allowlist, the risky patterns and the redaction rules, in one file.
 - [github.com/JoshTSeppich/cairn](https://github.com/JoshTSeppich/cairn) — the working discipline this was built under, as a Claude Code plugin.
 - [github.com/JoshTSeppich/Lantern](https://github.com/JoshTSeppich/Lantern) — the screen-shape method [`bankbot/surface/fingerprint.py`](bankbot/surface/fingerprint.py) ports.

@@ -6,7 +6,7 @@ EVIDENCE  = --runs-dir evidence --keep-trace
 
 .PHONY: review test lint discover replay replay-notfound replay-expiry replay-dialog replay-variant-b \
         operator demo verify-evidence \
-        evidence-01 evidence-02 evidence-03 evidence-04 evidence-05 evidence-06 evidence-07
+        evidence-01 evidence-02 evidence-03 evidence-04 evidence-05 evidence-05b evidence-06 evidence-07 evidence-08
 
 # A fresh clone has no .env, and the demo credentials live in it, so every
 # target below that runs the CLI depends on this file existing. Not .PHONY:
@@ -56,9 +56,9 @@ operator:
 
 demo: discover replay replay-notfound replay-expiry
 
-# The seven evidence runs, written under evidence/ with their traces kept.
+# The nine evidence runs, written under evidence/ with their traces kept.
 #
-# Order matters. 01 compiles the capability the other six replay, so it goes
+# Order matters. 01 compiles the capability the other seven replay, so it goes
 # first and 06 goes last; 01 and 06 are also the only two that call a model
 # and cost money. A run directory is never overwritten, so a redo is two
 # commands:
@@ -68,17 +68,20 @@ demo: discover replay replay-notfound replay-expiry
 # and the whole set is:
 #
 #     rm -rf evidence && make evidence-01 evidence-02 evidence-03 \
-#         evidence-04 evidence-05 evidence-07 evidence-06 && make verify-evidence
+#         evidence-04 evidence-05 evidence-05b evidence-07 evidence-08 \
+#         evidence-06 && make verify-evidence
 #
 # Rebuilding the artifact alone needs no key and no model call, because the
 # transcript of the recorded run is committed beside it:
 #
 #     uv run python -m bankbot.cli compile evidence/01-discovery
 #
-# evidence-05 is the one that needs a person. It opens a browser window and
-# prints an operator URL; what the committed run records is Take control,
-# Mark step complete, the engine checking the step's wait_for and disagreeing,
-# then Take control and Abort. README has the sequence.
+# evidence-05 and evidence-05b need a person. Each opens a browser window and
+# prints an operator URL. evidence-05 is the mark-complete-then-abort run: what
+# the committed run records is Take control, Mark step complete, the engine
+# checking the step's wait_for and disagreeing, then Take control and Abort.
+# evidence-05b needs a person to press Take control, click OK in the browser
+# window, and press Hand back. README has both sequences.
 evidence-01: .env
 	$(CLI) discover --goal "look up the savings balance for the member" --param member_id=M-100 \
 	  --runs-dir evidence --run-id 01-discovery
@@ -103,6 +106,13 @@ evidence-06: .env
 
 evidence-07: .env
 	$(CLI) replay $(CAP) --param member_id=M-100 --variant b $(EVIDENCE) --run-id 07-replay-variant-b
+
+evidence-05b: .env
+	HEADED=1 $(CLI) replay $(CAP) --param member_id=M-100 --fault unknown_dialog_at_step=2 \
+	  $(EVIDENCE) --run-id 05b-replay-handoff-resumed
+
+evidence-08: .env
+	$(CLI) replay $(CAP) --param member_id=M-101 $(EVIDENCE) --run-id 08-replay-success-m101
 
 # Every evidence directory parses, names only known events, points at
 # screenshots that exist, and carries no secret or PII-shaped value.

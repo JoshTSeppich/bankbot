@@ -2,6 +2,11 @@
 
 [![ci](https://github.com/JoshTSeppich/bankbot/actions/workflows/ci.yml/badge.svg)](https://github.com/JoshTSeppich/bankbot/actions/workflows/ci.yml)
 
+<p align="center">
+  <a href="docs/media/handoff.mp4"><img src="docs/media/handoff.gif" alt="make replay-dialog: an unknown dialog blocks click_search, the operator takes control and marks the step complete, the engine checks wait_for and refuses with checkpoint_unmet" width="100%"></a>
+</p>
+<p align="center"><sub><code>make replay-dialog</code>, reconstructed from <a href="evidence/05-replay-handoff">evidence/05-replay-handoff</a>. The operator marks the step complete; the engine checks it anyway.</sub></p>
+
 Record a browser workflow once with an LLM driving, then replay it without one. The recording is a typed artifact that names each control the way a person sees it, so it can be reviewed, versioned and rerun against the same app. This is my take-home submission for interface.ai; the write-up is in REPORT.md.
 
 ## Run

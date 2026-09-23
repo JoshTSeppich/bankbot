@@ -1,6 +1,11 @@
 [project]
 name = "bankbot"
 version = "0.1.0"
+description = "Record a browser workflow once with an LLM, then replay it as a typed capability with no model in the loop."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Joshua Seppich", email = "josh@foxworks.dev" }]
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.7.0",

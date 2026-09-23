@@ -1,0 +1,46 @@
+{"ts": "2026-09-23T15:37:19.003220+00:00", "event": "run_started", "capability": "lookup_savings_balance", "version": "1.0.0", "params": ["member_id"], "base_url": "http://127.0.0.1"}
+{"ts": "2026-09-23T15:37:20.377213+00:00", "event": "recovery_started", "recovery": "session_expired"}
+{"ts": "2026-09-23T15:37:20.377732+00:00", "event": "step_started", "step_id": "login_username", "action": "type", "value": "secret:BANKBOT_USERNAME"}
+{"ts": "2026-09-23T15:37:20.480574+00:00", "event": "target_resolved", "step_id": "login_username", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:20.480774+00:00", "event": "step_done", "step_id": "login_username"}
+{"ts": "2026-09-23T15:37:20.480875+00:00", "event": "step_started", "step_id": "login_password", "action": "type", "value": "secret:BANKBOT_PASSWORD"}
+{"ts": "2026-09-23T15:37:20.519236+00:00", "event": "target_resolved", "step_id": "login_password", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:20.519393+00:00", "event": "step_done", "step_id": "login_password"}
+{"ts": "2026-09-23T15:37:20.519498+00:00", "event": "step_started", "step_id": "login_submit", "action": "click", "value": ""}
+{"ts": "2026-09-23T15:37:20.641068+00:00", "event": "target_resolved", "step_id": "login_submit", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:20.641254+00:00", "event": "step_done", "step_id": "login_submit"}
+{"ts": "2026-09-23T15:37:20.641353+00:00", "event": "recovery_finished", "recovery": "session_expired"}
+{"ts": "2026-09-23T15:37:20.647230+00:00", "event": "step_started", "step_id": "open_start", "action": "navigate", "value": "/members/search"}
+{"ts": "2026-09-23T15:37:20.698224+00:00", "event": "step_done", "step_id": "open_start"}
+{"ts": "2026-09-23T15:37:20.731635+00:00", "event": "screen_compared", "screen": "/members/search", "distance": 0, "length": 2}
+{"ts": "2026-09-23T15:37:21.099056+00:00", "event": "step_started", "step_id": "type_member_id", "action": "type", "value": "param:member_id"}
+{"ts": "2026-09-23T15:37:21.144532+00:00", "event": "target_resolved", "step_id": "type_member_id", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:21.144714+00:00", "event": "step_done", "step_id": "type_member_id"}
+{"ts": "2026-09-23T15:37:21.505120+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-23T15:37:26.614240+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:52793/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-23T15:37:27.266544+00:00", "event": "retry", "step_id": "click_search", "remaining": 1}
+{"ts": "2026-09-23T15:37:27.266956+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-23T15:37:32.411903+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:52793/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-23T15:37:33.121153+00:00", "event": "retry", "step_id": "click_search", "remaining": 0}
+{"ts": "2026-09-23T15:37:33.122253+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-23T15:37:38.393678+00:00", "event": "step_failed", "step_id": "click_search", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:52793/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-23T15:37:39.273382+00:00", "event": "intervention_requested", "step_id": "click_search", "reason": "unknown_dialog", "expected": "click on 'Search' to complete", "observed": "Locator.click: Timeout 5000ms exceeded. at http://127.0.0.1:52793/members/search with a dialog: 'System notice\\nScheduled maintenance tonight 02:00–03:00\\nOK'"}
+{"ts": "2026-09-23T15:37:39.273553+00:00", "event": "control", "state": "intervention_requested"}
+{"ts": "2026-09-23T15:37:41.579247+00:00", "event": "control", "state": "human"}
+{"ts": "2026-09-23T15:37:44.894350+00:00", "event": "human_action", "kind": "input", "description": "input 'Member ID'", "frame_path": ["main"], "url": "http://127.0.0.1:52793/members/search-form"}
+{"ts": "2026-09-23T15:37:44.936315+00:00", "event": "human_action", "kind": "click", "description": "button 'OK'", "frame_path": [], "url": "http://127.0.0.1:52793/members/search"}
+{"ts": "2026-09-23T15:37:49.434099+00:00", "event": "control", "state": "automation", "decision": "resume"}
+{"ts": "2026-09-23T15:37:49.434350+00:00", "event": "intervention_answered", "step_id": "click_search", "decision": "resume"}
+{"ts": "2026-09-23T15:37:49.434476+00:00", "event": "step_started", "step_id": "click_search", "action": "click", "value": ""}
+{"ts": "2026-09-23T15:37:49.642651+00:00", "event": "target_resolved", "step_id": "click_search", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:49.642796+00:00", "event": "step_done", "step_id": "click_search"}
+{"ts": "2026-09-23T15:37:49.993576+00:00", "event": "step_started", "step_id": "click_link", "action": "click", "value": ""}
+{"ts": "2026-09-23T15:37:50.134770+00:00", "event": "target_resolved", "step_id": "click_link", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:50.134897+00:00", "event": "step_done", "step_id": "click_link"}
+{"ts": "2026-09-23T15:37:50.479909+00:00", "event": "step_started", "step_id": "read_savings_balance", "action": "extract", "value": "output:savings_balance"}
+{"ts": "2026-09-23T15:37:50.506941+00:00", "event": "output_extracted", "output": "savings_balance"}
+{"ts": "2026-09-23T15:37:50.507101+00:00", "event": "target_resolved", "step_id": "read_savings_balance", "candidate_index": 0}
+{"ts": "2026-09-23T15:37:50.507198+00:00", "event": "step_done", "step_id": "read_savings_balance"}
+{"ts": "2026-09-23T15:37:50.857271+00:00", "event": "checkpoint_passed", "description": "The page shows 'Savings balance'"}
+{"ts": "2026-09-23T15:37:51.039259+00:00", "event": "trace", "file": "trace.zip", "kept": true, "existed": true}
+{"ts": "2026-09-23T15:37:51.039362+00:00", "event": "run_finished", "kind": "success"}
